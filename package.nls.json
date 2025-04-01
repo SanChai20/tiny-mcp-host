@@ -1,0 +1,15 @@
+{
+    "devlinker.desc": "Bridge your development environment with AI assistants through streamlined management of multiple Model Context Protocol server connections.",
+    "devlinker.connect": "Connect to a Model Context Protocol server",
+    "devlinker.disconnect": "Disconnect from a Model Context Protocol server",
+    "devlinker.tools": "List available tools",
+    "ext.desc": "A Copilot chat participant that connects your AI assistants with your development environment.",
+    "ailinker.output": "Show outputs",
+    "chat.cmd1.desc": "Connect to a remote MCP server using url.",
+    "chat.cmd2.desc": "Connect to a local MCP server using stdio transport.",
+    "chat.cmd3.desc": "Disconnect from a specific MCP server.",
+    "chat.cmd4.desc": "Disconnect from all MCP servers.",
+    "chat.cmd5.desc": "Connect to MCP services by attached Json file.",
+    "chat.cmd6.desc": "Refresh all MCP connections",
+    "chat.cmd7.desc": "Automatically query external resources. (Use with caution! Explicitly state to re-fetch.)"
+}
