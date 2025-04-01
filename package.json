@@ -4,6 +4,7 @@
   "displayName": "DevLinker - MCP Host",
   "description": "%ext.desc%",
   "version": "0.2.7",
+  "pricing": "Free",
   "icon": "images/logo.png",
   "engines": {
     "vscode": "^1.65.0"
