@@ -77,9 +77,9 @@
 
 3. Connect to MCP services using /connectLocal or /connectRemote commands. If there are spaces in file paths, use double quotes
 
-```@devlinker /connectLocal python D://xxxx/xxx/xx.py```
+    ```@devlinker /connectLocal python D://xxxx/xxx/xx.py```
 
-```@devlinker /connectLocal python "D://xxxx/xx xx/xx.py"```
+    ```@devlinker /connectLocal python "D://xxxx/xx xx/xx.py"```
 
 4. After successful connection, a Connection id will be returned, which can be used later to disconnect
 
@@ -112,15 +112,15 @@
 
 - /connectLocal - Connect to a local MCP service process
 
-<code>@devlinker /connectLocal python D:/xxxx/xx.py</code>
+    <code>@devlinker /connectLocal python D:/xxxx/xx.py</code>
 
-<code>@devlinker /connectLocal node D:/xxxx/xx.js</code>
+    <code>@devlinker /connectLocal node D:/xxxx/xx.js</code>
 
 - /connectRemote - Connect to a remote MCP service. Note: remote service connections are currently unstable
 
 - /disconnect - Disconnect a specific MCP connection, use the connectionID that was returned after successful connection
 
-<code>@devlinker /disconnect connectionID</code>
+    <code>@devlinker /disconnect connectionID</code>
 
 - /disconnectAll - Disconnect all MCP connections
 
