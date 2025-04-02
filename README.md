@@ -40,14 +40,14 @@
 
 - `/connectLocal` - 连接本地MCP服务进程
     
-    <code>e.g. @devlinker /connectLocal python D:/xxxx/xx.py</code>
+    <code>@devlinker /connectLocal python D:/xxxx/xx.py</code>
 
-    <code>e.g. @devlinker /connectLocal node D:/xxxx/xx.js</code>
+    <code>@devlinker /connectLocal node D:/xxxx/xx.js</code>
 
 - `/connectRemote` - 连接远程MCP服务，注意：远程服务连接暂不稳定
 - `/disconnect` - 断开某个MCP连接，后续接connectionID使用，连接成功后会返回id
 
-    <code>e.g. /disconnect connectionID</code>
+    <code>@devlinker /disconnect connectionID</code>
 
 - `/disconnectAll` - 断开所有MCP连接
 - `/refresh` - 刷新所有MCP服务连接
