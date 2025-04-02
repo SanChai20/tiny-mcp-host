@@ -53,3 +53,87 @@
 - `/refresh` - 刷新所有MCP服务连接
 - `/load` - 将MCP服务json配置文件拖拽至聊天窗口作为附件后，通过此指令进行全部加载并连接
 - `/autoContext` - 由LLM选择引用哪些外部资源，但是要慎用，因为存在LLM使用旧数据的隐患，需要用户显式的说明重新拉取，才会获得最新数据
+
+
+## 常见问题
+
+- 在创建并连接本地MCP服务进程前建议先通过本地终端执行，排查问题
+
+- 在显示已连接MCP服务为0时，窗口内依然存在断开连接等followups时不用在意，再次对话将会刷新
+
+- 如果每次对话都返回同个错误，解决不了时尝试新建一个聊天
+
+
+# DevLinker - MCP Host Plugin
+
+
+## How to Use
+
+1. Open the Copilot chat window in VS Code
+
+2. Use the extension chat role <code>@devlinker</code>
+
+    ```@devlinker```
+
+3. Connect to MCP services using /connectLocal or /connectRemote commands. If there are spaces in file paths, use double quotes
+
+```@devlinker /connectLocal python D://xxxx/xxx/xx.py```
+
+```@devlinker /connectLocal python "D://xxxx/xx xx/xx.py"```
+
+4. After successful connection, a Connection id will be returned, which can be used later to disconnect
+
+5. Recommended LLM model is GPT-4o, other models may have limited support
+
+## Features
+
+1. Supports MCP Tools and Resources (without using the /autoContext command, a popup will appear requiring users to select which Resources to reference)
+
+2. Supports managing multiple MCP service connections
+
+3. Supports actively disconnecting and reconnecting MCP services
+
+4. Supports importing and connecting MCP services from local json files, which must follow this format:
+
+```
+    {
+        "local": [
+            "node D:/path/to/your/jsfile.js",
+            "node D:/path/to/your/jsfile.js D:/path/to/target/folder",
+            "python E:/path/to/your/pyfile.py"
+        ],
+        "remote": [
+            "ws:/some/url"
+        ]
+    }
+```
+
+## Common Chat Commands
+
+- /connectLocal - Connect to a local MCP service process
+
+<code>@devlinker /connectLocal python D:/xxxx/xx.py</code>
+
+<code>@devlinker /connectLocal node D:/xxxx/xx.js</code>
+
+- /connectRemote - Connect to a remote MCP service. Note: remote service connections are currently unstable
+
+- /disconnect - Disconnect a specific MCP connection, use the connectionID that was returned after successful connection
+
+<code>@devlinker /disconnect connectionID</code>
+
+- /disconnectAll - Disconnect all MCP connections
+
+- /refresh - Refresh all MCP service connections
+
+- /load - After dragging an MCP service configuration json file into the chat window as an attachment, use this command to load and connect to all services
+
+- /autoContext - Let the LLM choose which external resources to reference. Use with caution as there is a risk of the LLM using outdated data. Users need to explicitly request refreshing data to get the latest information
+
+## Common Issues
+
+- Before creating and connecting to a local MCP service process, it is recommended to first execute it through your local terminal to troubleshoot any issues
+
+- When the display shows 0 connected MCP services but disconnect and other followups still appear in the chat window, don't worry about it. The next conversation turn will refresh these options
+
+- If every conversation returns the same error and you can't resolve it, try starting a new chat
