@@ -18,7 +18,7 @@
 
 ## 特性
 
-1. 支持MCP Tools与Resources（在不使用/autoContext指令的前提下需要用户自己选择引用的Resources）  
+1. 支持MCP Tools与Resources（在不使用/autoContext指令的前提下将进行弹窗，需用户自己选择引用的Resources）  
 2. 支持管理多个MCP服务连接
 3. 支持主动断开连接、主动重新连接MCP服务等功能  
 4. 支持从本地json文件导入并连接MCP服务，须遵循如下格式：
