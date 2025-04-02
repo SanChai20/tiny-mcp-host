@@ -70,19 +70,44 @@ export class DevlinkerChatParticipant {
         }
     }
 
-    private async connectToLocalServer(stream: vscode.ChatResponseStream, execCmd: string, execArgs: string[]) : Promise<void> {
+    private async connectToLocalServer(stream: vscode.ChatResponseStream, execCmd: string, execArgs: string[] = []) : Promise<void> {
+        if (!execCmd || execCmd.trim() === '') {
+            stream.markdown(vscode.l10n.t("Invalid command. Command cannot be empty."));
+            return;
+        }
         
         try {
-            const connectionId = `MCP-Connection-${execCmd}-${execArgs.join('_')}`;
+            // 生成一个安全的唯一连接ID
+            const safeExecCmd = execCmd.replace(/[^\w-]/g, '_');
+            const safeExecArgs = execArgs.map(arg => arg.replace(/[^\w-]/g, '_'));
+            const connectionId = `MCP_Connection_${safeExecCmd}_${safeExecArgs.join('_')}`;
+            
+            // 检查连接是否已存在
             if (MCPConnectorManager.getInstance().isConnected(connectionId)) {
-                stream.markdown(vscode.l10n.t("The server process is already connected."));
+                stream.markdown(vscode.l10n.t("The server process is already connected with ID: {0}", connectionId));
                 return;
             }
-            const connecting = vscode.l10n.t("Try to connect to local MCP server process");
+            
+            const connecting = vscode.l10n.t("Attempting to connect to local MCP server process: {0}", `${execCmd} ${execArgs.join(' ')}`);
             stream.progress(connecting);
+            GlobalChannel.getInstance().appendLog(connecting);
+            
             // 确定执行命令
             const { cmd: pCmd, args: pArgs } = findActualExecutable(execCmd, execArgs);
+            
+            // 验证命令有效性
+            if (!pCmd) {
+                const response = vscode.l10n.t("Invalid executable. Could not find: {0}", execCmd);
+                stream.markdown(response);
+                return;
+            }
+            
+            // 设置环境变量
             const env = { ...getDefaultEnvironment() };
+            
+            // 使用配置或默认值的超时设置
+            const timeoutMs = 10000; // 可以从配置中读取
+            
             // 创建连接选项
             const options: MCPOptions = {
                 id: connectionId,
@@ -93,18 +118,24 @@ export class DevlinkerChatParticipant {
                     args: pArgs,
                     env
                 },
-                timeout: 10000 // 10秒超时
+                timeout: timeoutMs
             };
+            
             // 创建并连接
+            //GlobalChannel.getInstance().appendLog(`Creating connection to: ${pCmd} ${pArgs.join(' ')}`);
             const connection = MCPConnectorManager.getInstance().createConnection(options.id, options);
+            
             // 刷新连接
+            //GlobalChannel.getInstance().appendLog(`Refreshing connection: ${connectionId}`);
             await MCPConnectorManager.getInstance().refreshConnection(options.id);
-
+    
             const connStatus = connection.getStatus();
+            
             if (connStatus.status === 'connected') {
                 const response = vscode.l10n.t("Connected to local MCP server process. The connection id is {0}. If you'd like to disconnect from it, use this id with /disconnect command.", connectionId);
                 GlobalChannel.getInstance().appendLog(response);
                 stream.markdown(response);
+                
                 // 更新连接计数栏
                 const connectionCount = MCPConnectorManager.getInstance().getAvailableConnectionsCount();
                 GlobalChannel.getInstance().updateConnectionCountBar(connectionCount);
@@ -112,15 +143,25 @@ export class DevlinkerChatParticipant {
             } else if (connStatus.status === 'error') {
                 const errors = connStatus.errors.join('\n');
                 const response = vscode.l10n.t("Connect to local MCP server process failed. {0}", errors);
+                GlobalChannel.getInstance().appendLog(`Connection error: ${errors}`);
                 stream.markdown(response);
+                
+                // 尝试清理失败的连接
+                await MCPConnectorManager.getInstance().removeConnection(connectionId);
                 return;
             } else {
-                const response = vscode.l10n.t("Connect to local MCP server process timeout");
+                const response = vscode.l10n.t("Connect to local MCP server process timeout after {0}ms", timeoutMs);
+                GlobalChannel.getInstance().appendLog(`Connection timeout: ${connectionId}`);
                 stream.markdown(response);
+                
+                // 尝试清理超时的连接
+                await MCPConnectorManager.getInstance().removeConnection(connectionId);
                 return;
             }
         } catch (e) {
-            const response = vscode.l10n.t("Connect to local MCP server process failed. {0}", e instanceof Error ? e.message : String(e));
+            const errorMessage = e instanceof Error ? e.message : String(e);
+            const response = vscode.l10n.t("Connect to local MCP server process failed. {0}", errorMessage);
+            GlobalChannel.getInstance().appendLog(`Connection error: ${errorMessage}`);
             stream.markdown(response);
             return;
         }
@@ -237,15 +278,31 @@ export class DevlinkerChatParticipant {
         }
     }
 
-    private parseCommands(prompt: string) : { execCmd: string; execArgs: string[] } | undefined {
-        const tokens = prompt.trim().split(/\s+/);
+    private parseCommands(prompt: string | undefined) : { execCmd: string; execArgs: string[] } | undefined {
+        if (!prompt || prompt.trim() === '') {
+            return undefined;
+        }
+        
+        const result: { execCmd: string; execArgs: string[] } = { execCmd: '', execArgs: [] };
+        
+        // 处理引号内的参数，支持 "parameter with spaces"
+        const regex = /[^\s"]+|"([^"]*)"/gi;
+        let match;
+        let tokens: string[] = [];
+        
+        while ((match = regex.exec(prompt)) !== null) {
+            // 如果捕获了引号内的内容，使用它；否则使用完整匹配
+            tokens.push(match[1] || match[0]);
+        }
+        
         if (tokens.length === 0) {
             return undefined;
         }
-        return { 
-            execCmd: tokens[0], 
-            execArgs: tokens.slice(1)
-        };
+        
+        result.execCmd = tokens[0];
+        result.execArgs = tokens.slice(1);
+        
+        return result;
     }
 
     // 手动选择资源当作引用

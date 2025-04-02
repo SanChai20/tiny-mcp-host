@@ -215,22 +215,6 @@ export class MCPConnectorManager {
         }));
     }
 
-    // // 获取已连接服务的Prompts
-    // getAvailableConnectionPromptsWithId() : { id: string; prompts: MCPPrompt[] }[] {
-    //     return Array.from(this.connections.entries()).filter(([id, connection]) => connection.status === "connected").map(([id, connection]) => ({
-    //         id: id,
-    //         prompts: connection.prompts
-    //     }));
-    // }
-
-    // // 获取已连接服务的Prompts
-    // getAvailableConnectionPromptsWithClient() : { client: Client; prompts: MCPPrompt[] }[] {
-    //     return Array.from(this.connections.values()).filter(connection => connection.status === "connected").map(connection => ({
-    //         client: connection.client,
-    //         prompts: connection.prompts
-    //     }));
-    // }
-
     // 获取已连接服务的Resources
     getAvailableConnectionResourcesWithId(): { id: string; resources: MCPResource[] }[] {
         return Array.from(this.connections.entries()).filter(([id, connection]) => connection.status === "connected" && connection.resources.length > 0).map(([id, connection]) => ({
@@ -260,9 +244,6 @@ export class MCPConnectorManager {
         return undefined;
         //return Array.from(this.connections.values()).find((connection) => connection.tools.some((tool) => tool.name === toolName));
     }
-
-
-
 
 }
 
