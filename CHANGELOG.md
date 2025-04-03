@@ -17,3 +17,7 @@ All notable changes to the "Devlinker - MCP Host" extension will be documented i
 - 处理 undefined 或空字符串输入问题
 - 支持引号中的空格参数
 - 增加更详细的日志记录
+
+## 0.3.0
+
+- 服务端未列出Resource时不再弹窗选择
