@@ -21,3 +21,7 @@ All notable changes to the "Devlinker - MCP Host" extension will be documented i
 ## 0.3.0
 
 - 服务端未列出Resource时不再弹窗选择
+
+## 0.3.1
+
+- 修改说明
