@@ -318,6 +318,10 @@ export class DevlinkerChatParticipant {
             }))
         );
 
+        if (allResources.length === 0) {
+            return [];
+        }
+
         // 显示多选列表
         const selection = await vscode.window.showQuickPick(allResources, {
             placeHolder: vscode.l10n.t('Select resources to reference (Multi-select)'),
