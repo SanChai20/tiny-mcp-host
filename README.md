@@ -31,7 +31,7 @@
             "python E:/path/to/your/pyfile.py"
         ],
         "remote": [
-            "ws:/some/url"
+            "http://example.com:8000/sse"
         ]
     }
 ```
