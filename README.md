@@ -7,14 +7,20 @@
 
     ```@devlinker```
 
-3. 通过/connectLocal或/connectRemote指令连接MCP服务，如果文件路径中有空格，请使用双引号
+3. 通过/connectLocal指令连接本地MCP服务进程，输入部分为执行命令及参数，如果文件路径中有空格，请使用双引号
+
+    ```@devlinker /connectLocal node D://xxxx/xxx/xx.js```
 
     ```@devlinker /connectLocal python D://xxxx/xxx/xx.py```
 
     ```@devlinker /connectLocal python "D://xxxx/xx xx/xx.py"```
 
-4. 连接成功后会有Connection id返回，事后可以使用此id来断开连接
-5. LLM模型建议GPT-4o，其它模型支持力度不一
+4. 或者通过/connectRemote指令连接远程SSE MCP服务
+
+    ```@devlinker /connectRemote http://localhost:8000/sse```
+
+5. 连接成功后会有Connection id返回，事后可以使用此id来断开连接
+6. LLM模型建议GPT-4o，其它模型支持力度不一
 
 ## 特性
 
@@ -39,14 +45,8 @@
 ## 常用聊天指令
 
 - `/connectLocal` - 连接本地MCP服务进程
-    
-    <code>@devlinker /connectLocal python D:/xxxx/xx.py</code>
 
-    <code>@devlinker /connectLocal node D:/xxxx/xx.js</code>
-
-- `/connectRemote` - 连接远程MCP服务(SSE)，注意：远程服务连接暂不稳定
-
-    <code>@devlinker /connectRemote http://localhost:8000/sse</code>
+- `/connectRemote` - 连接SSE服务
 
 - `/disconnect` - 断开某个MCP连接，后续接connectionID使用，连接成功后会返回id
 
@@ -78,15 +78,21 @@
 
     ```@devlinker```
 
-3. Connect to MCP services using /connectLocal or /connectRemote commands. If there are spaces in file paths, use double quotes
+3. Connect to MCP service by using /connectLocal command. If there are spaces in file paths, use double quotes
+
+    ```@devlinker /connectLocal node D://xxxx/xxx/xx.js```
 
     ```@devlinker /connectLocal python D://xxxx/xxx/xx.py```
 
     ```@devlinker /connectLocal python "D://xxxx/xx xx/xx.py"```
 
-4. After successful connection, a Connection id will be returned, which can be used later to disconnect
+4. Connect to MCP service by using /connectRemote command.
 
-5. Recommended LLM model is GPT-4o, other models may have limited support
+    ```@devlinker /connectRemote http://localhost:8000/sse```
+
+5. After successful connection, a Connection id will be returned, which can be used later to disconnect
+
+6. Recommended LLM model is GPT-4o, other models may have limited support
 
 ## Features
 
@@ -115,13 +121,7 @@
 
 - /connectLocal - Connect to a local MCP service process
 
-    <code>@devlinker /connectLocal python D:/xxxx/xx.py</code>
-
-    <code>@devlinker /connectLocal node D:/xxxx/xx.js</code>
-
 - /connectRemote - Connect to a remote SSE MCP service. Note: remote service connections are currently unstable
-
-    <code>@devlinker /connectRemote http://localhost:8000/sse</code>
 
 - /disconnect - Disconnect a specific MCP connection, use the connectionID that was returned after successful connection
 

@@ -3,7 +3,7 @@
   "name": "devlinker-mcp-host",
   "displayName": "DevLinker - MCP Host",
   "description": "%ext.desc%",
-  "version": "0.3.2",
+  "version": "0.3.3",
   "pricing": "Free",
   "icon": "images/logo.png",
   "engines": {
