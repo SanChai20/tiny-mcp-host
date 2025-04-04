@@ -25,7 +25,7 @@ export class DevlinkerChatParticipant {
         try 
         {
             if (url === undefined || url === "") {
-                const response = vscode.l10n.t("Connect to remote websocket MCP server failed. {0}", vscode.l10n.t("Url is invalid."));
+                const response = vscode.l10n.t("Connect to remote SSE MCP server failed. {0}", vscode.l10n.t("Url is invalid."));
                 stream.markdown(response);
                 return;
             }
@@ -34,7 +34,7 @@ export class DevlinkerChatParticipant {
                 id: url,
                 name: url,
                 transport: {
-                    type: 'websocket',
+                    type: 'sse',
                     url
                 },
                 timeout: 10000 // 10秒超时
@@ -54,7 +54,7 @@ export class DevlinkerChatParticipant {
                 return;
             } else if (connStatus.status === 'error') {
                 const errors = connStatus.errors.join('\n');
-                const response = vscode.l10n.t("Connect to remote websocket MCP server failed. {0}", errors);
+                const response = vscode.l10n.t("Connect to remote SSE MCP server failed. {0}", errors);
                 stream.markdown(response);
                 return;
             } else {
@@ -64,7 +64,7 @@ export class DevlinkerChatParticipant {
             }
 
         } catch (e) {
-            const response = vscode.l10n.t("Connect to remote websocket MCP server failed. {0}", e instanceof Error ? e.message : String(e));
+            const response = vscode.l10n.t("Connect to remote SSE MCP server failed. {0}", e instanceof Error ? e.message : String(e));
             stream.markdown(response);
             return;
         }

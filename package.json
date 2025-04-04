@@ -3,7 +3,7 @@
   "name": "devlinker-mcp-host",
   "displayName": "DevLinker - MCP Host",
   "description": "%ext.desc%",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "pricing": "Free",
   "icon": "images/logo.png",
   "engines": {
@@ -140,5 +140,8 @@
     "@vscode/chat-extension-utils": "^0.0.0-alpha.5",
     "@vscode/l10n": "^0.0.10",
     "spawn-rx": "^5.1.2"
+  },
+  "overrides": {
+    "pkce-challenge": "3.1.0"
   }
 }

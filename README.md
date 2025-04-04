@@ -31,7 +31,7 @@
             "python E:/path/to/your/pyfile.py"
         ],
         "remote": [
-            "http://example.com:8000/sse"
+            "http://xxx.xx.xx.x:8000/sse"
         ]
     }
 ```
@@ -44,7 +44,10 @@
 
     <code>@devlinker /connectLocal node D:/xxxx/xx.js</code>
 
-- `/connectRemote` - 连接远程MCP服务，注意：远程服务连接暂不稳定
+- `/connectRemote` - 连接远程MCP服务(SSE)，注意：远程服务连接暂不稳定
+
+    <code>@devlinker /connectRemote http://localhost:8000/sse</code>
+
 - `/disconnect` - 断开某个MCP连接，后续接connectionID使用，连接成功后会返回id
 
     <code>@devlinker /disconnect connectionID</code>
@@ -103,7 +106,7 @@
             "python E:/path/to/your/pyfile.py"
         ],
         "remote": [
-            "ws:/some/url"
+            "http://xxx.xx.xx.x:8000/sse"
         ]
     }
 ```
@@ -116,7 +119,9 @@
 
     <code>@devlinker /connectLocal node D:/xxxx/xx.js</code>
 
-- /connectRemote - Connect to a remote MCP service. Note: remote service connections are currently unstable
+- /connectRemote - Connect to a remote SSE MCP service. Note: remote service connections are currently unstable
+
+    <code>@devlinker /connectRemote http://localhost:8000/sse</code>
 
 - /disconnect - Disconnect a specific MCP connection, use the connectionID that was returned after successful connection
 

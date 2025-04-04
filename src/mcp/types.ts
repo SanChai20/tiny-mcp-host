@@ -13,17 +13,17 @@ export interface StdioOptions {
     env?: Record<string, string>;
 }
 
-export interface WebSocketOptions {
-    type: "websocket";
-    url: string;
-}
+// export interface WebSocketOptions {
+//     type: "websocket";
+//     url: string;
+// }
 
 export interface SSEOptions {
     type: "sse";
     url: string;
 }
 
-export type TransportOptions = StdioOptions | WebSocketOptions | SSEOptions;
+export type TransportOptions = StdioOptions | SSEOptions;
 
 export interface MCPPrompt {
     name: string;

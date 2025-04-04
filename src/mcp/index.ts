@@ -3,9 +3,10 @@ import * as vscode from 'vscode';
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { Transport } from "@modelcontextprotocol/sdk/shared/transport.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
-import { WebSocketClientTransport } from "@modelcontextprotocol/sdk/client/websocket.js";
+//import { WebSocketClientTransport } from "@modelcontextprotocol/sdk/client/websocket.js";
 import { DEFAULT_MCP_TIMEOUT, MCPConnectionStatus, MCPOptions, MCPPrompt, MCPResource, MCPServerStatus, MCPTool } from "./types";
 import { GlobalChannel } from "../channel";
+import { SSEClientTransport } from '@modelcontextprotocol/sdk/client/sse.js';
 
 export class MCPConnectorManager {
 
@@ -266,7 +267,7 @@ export class MCPConnection {
         this.transport = this.constructTransport(options);
         this.client = new Client(
             {
-                name: "continue-client",
+                name: "devlinker-client",
                 version: "1.0.0",
             },
             {
@@ -282,7 +283,7 @@ export class MCPConnection {
         await this.client.close();
         this.transport = this.constructTransport(this.options);
         this.client = new Client(
-            { name: "continue-client", version: "1.0.0" },
+            { name: "devlinker-client", version: "1.0.0" },
             { capabilities: {} }
         );
         this.status = "not-connected";
@@ -300,11 +301,10 @@ export class MCPConnection {
                     args: options.transport.args,
                     env,
                 });
-            case "websocket":
-                return new WebSocketClientTransport(new URL(options.transport.url));
-            //  SSE目前支持不好 先不添加
-            //   case "sse":
-            //     return new SSEClientTransport(new URL(options.transport.url));
+            // case "websocket":
+            //     return new WebSocketClientTransport(new URL(options.transport.url));
+            case "sse":
+                return new SSEClientTransport(new URL(options.transport.url));
             default:
                 throw new Error(
                     `Unsupported transport type: ${(options.transport as any).type}`,
@@ -377,7 +377,8 @@ export class MCPConnection {
                             try {
                                 await this.client.connect(this.transport);
                             } catch (error) {
-                            // Allow the case where for whatever reason is already connected
+                                GlobalChannel.getInstance().appendLog(error instanceof Error ? error.message : String(error));
+                                // Allow the case where for whatever reason is already connected
                                 if (error instanceof Error && error.message.startsWith("StdioClientTransport already started")) {
                                     await this.client.close();
                                     await this.client.connect(this.transport);

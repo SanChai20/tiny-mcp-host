@@ -25,3 +25,9 @@ All notable changes to the "Devlinker - MCP Host" extension will be documented i
 ## 0.3.1
 
 - 修改说明
+
+## 0.3.2
+
+- 修复SSE远程连接BUG
+- 去除websocket远程连接
+- 修复pkce-challenge包导入问题

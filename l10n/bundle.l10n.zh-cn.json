@@ -45,7 +45,7 @@
     "Invoke Tool {0}, Parameters: {1}": "调用工具：{0}，参数为：{1}",
     "Invoke Tool {0}, Progress: {1}": "调用工具：{0}，进度为：{1}",
     "Tool {0} inputs unknown.": "工具{0}参数未知",
-    "Connect to remote websocket MCP server failed. {0}": "远程MCP服务{0}连接失败。",
+    "Connect to remote SSE MCP server failed. {0}": "远程MCP服务{0}连接失败。",
     "Url is invalid.": "路径无效",
     "Connect to remote MCP server process timeout": "连接远程MCP服务超时",
     "Load & Connect MCP Services": "加载并连接MCP服务",
