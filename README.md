@@ -1,5 +1,8 @@
 # DevLinker - MCP Host 插件
 
+[![GitHub](https://img.shields.io/badge/GitHub-项目主页-blue?logo=github)](https://github.com/SanChai20/tiny-mcp-host)
+
+
 ## 使用方法
 
 1. 打开VS Code中的Copilot聊天窗口
