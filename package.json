@@ -3,8 +3,9 @@
   "name": "devlinker-mcp-host",
   "displayName": "DevLinker - MCP Host",
   "description": "%ext.desc%",
-  "version": "0.3.3",
+  "version": "0.3.4",
   "pricing": "Free",
+  "repository": "https://github.com/SanChai20/tiny-mcp-host",
   "icon": "images/logo.png",
   "engines": {
     "vscode": "^1.65.0"
