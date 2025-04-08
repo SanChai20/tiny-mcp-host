@@ -39,3 +39,7 @@ All notable changes to the "Devlinker - MCP Host" extension will be documented i
 ## 0.3.4
 
 - 添加Github
+
+## 0.3.5
+
+- 添加主页链接
