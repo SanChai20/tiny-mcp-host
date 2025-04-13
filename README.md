@@ -27,7 +27,7 @@
 
 ## 特性
 
-1. 支持服务端特性：Tools、Resources（在不使用/autoContext指令的前提下将进行弹窗，需用户自己选择引用的Resources），并监听相应列表更新事件
+1. 支持服务端特性：Tools、Resources以及Prompts（在不使用/autoContext指令的前提下将进行弹窗，需用户自己选择引用的Resources），并监听相应列表更新事件
 2. 支持客户端特性：Roots以及Sampling
 3. 支持管理多个MCP服务连接
 4. 支持主动断开连接、主动重新连接MCP服务等功能  
@@ -100,7 +100,7 @@
 
 ## Features
 
-1. Supports MCP server features: Tools, Resources (without using the /autoContext command, a popup will appear requiring users to select which Resources to reference), and listening for respective list update events
+1. Supports MCP server features: Tools, Resources, Prompts (without using the /autoContext command, a popup will appear requiring users to select which Resources to reference), and listening for respective list update events
 
 2. Supports MCP client features: Roots and Sampling
 

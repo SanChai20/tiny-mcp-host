@@ -8,6 +8,8 @@ import { getDefaultEnvironment } from '@modelcontextprotocol/sdk/client/stdio.js
 import { AdHocMCPTool } from '../mcp/tool';
 import { getMCPResourceInstruction, getSystemRole } from './instruction';
 import { readExternalResourceByUri } from '../mcp/resource';
+import { LLMRequest } from './utils';
+import { ResponseCollectorStream } from './streamwrapper';
 
 export class DevlinkerChatParticipant {
 
@@ -342,6 +344,8 @@ export class DevlinkerChatParticipant {
 
     public registerChatParticipant(context: vscode.ExtensionContext) {
         const handler: vscode.ChatRequestHandler = async (request: vscode.ChatRequest, chatContext: vscode.ChatContext, stream: vscode.ChatResponseStream, token: vscode.CancellationToken) => {
+            const collectorStream = new ResponseCollectorStream(stream);
+            
             //  组织引导
             let instructions = getSystemRole();
             //  处理本地工具
@@ -349,29 +353,29 @@ export class DevlinkerChatParticipant {
             //  内置命令
             switch (request.command) {
                 case 'disconnectAll':
-                    await this.disconnectToAllServers(stream);
+                    await this.disconnectToAllServers(collectorStream);
                     return; 
                 case 'connectRemote':
-                    await this.connectToRemoteServer(stream, request.prompt);
+                    await this.connectToRemoteServer(collectorStream, request.prompt);
                     return;
                 case 'connectLocal':
                     // 使用正则表达式匹配路径和参数
                     const parsedResult = this.parseCommands(request.prompt);
                     if (parsedResult === undefined) {
                         const response = vscode.l10n.t("Invalid command.");
-                        stream.markdown(response);
+                        collectorStream.markdown(response);
                         return;
                     }
-                    await this.connectToLocalServer(stream, parsedResult.execCmd, parsedResult.execArgs);
+                    await this.connectToLocalServer(collectorStream, parsedResult.execCmd, parsedResult.execArgs);
                     return;
                 case 'disconnect':
-                    await this.disconnectToServer(stream, request.prompt);
+                    await this.disconnectToServer(collectorStream, request.prompt);
                     return;
                 case 'load':
-                    await this.connectServicesFromFile(request, stream);
+                    await this.connectServicesFromFile(request, collectorStream);
                     return;
                 case 'refresh':
-                    await this.refreshAllServers(stream);
+                    await this.refreshAllServers(collectorStream);
                     return;
                 case 'autoContext':
                     // 更新并委托资源获取工具来自动引用
@@ -387,7 +391,7 @@ export class DevlinkerChatParticipant {
                     }
                     break;
             }
-            stream.progress(vscode.l10n.t("Processing requests..."));
+            collectorStream.progress(vscode.l10n.t("Processing requests..."));
 
             //  处理MCP工具
             let toolsOnMCP: AdHocMCPTool[] = [];
@@ -420,7 +424,7 @@ export class DevlinkerChatParticipant {
                 {
                     prompt: instructions,
                     responseStreamOptions: {
-                        stream,
+                        stream: collectorStream,
                         references: true,
                         responseText: true
                     },
@@ -428,7 +432,21 @@ export class DevlinkerChatParticipant {
                     extensionMode: vscode.ExtensionMode.Production
                 },
                 token);
-            return await libResult.result;
+            const responseResult = await libResult.result;
+            if (responseResult) {
+                return {
+                    ...responseResult,
+                    metadata: {
+                        ...(responseResult.metadata || {}),
+                        responseContent: collectorStream.responseContent
+                    }
+                };
+            }
+            return {
+                metadata: {
+                    responseContent: collectorStream.responseContent
+                }
+            };
         };
 
         // 创建聊天参与者
@@ -436,28 +454,59 @@ export class DevlinkerChatParticipant {
         participant.iconPath = new vscode.ThemeIcon('link');
         participant.followupProvider =  {
             provideFollowups(result: vscode.ChatResult, context: vscode.ChatContext, token: vscode.CancellationToken): vscode.ProviderResult<vscode.ChatFollowup[]> {
-                let followupsResult: vscode.ChatFollowup[] = [];
-                const connectionsCount = MCPConnectorManager.getInstance().getAvailableConnectionsCount();
-                if (connectionsCount > 0) {
-                    followupsResult.push({
-                        prompt: vscode.l10n.t('Refresh all MCP Connections'),
-                        label: vscode.l10n.t('Refresh all MCP Connections'),
-                        command: 'refresh',
-                        
-                    });
-                    followupsResult.push({
-                        prompt: vscode.l10n.t('Disconnect all servers'),
-                        label: vscode.l10n.t('Disconnect all servers'),
-                        command: 'disconnectAll'
-                    });
-                } else {
-                    followupsResult.push({
-                        prompt: vscode.l10n.t('Load & Connect MCP Services'),
-                        label: vscode.l10n.t('Load & Connect MCP Services'),
-                        command: 'load'
-                    });
-                }
-                return followupsResult;
+                //let followupsResult: vscode.ChatFollowup[] = [];
+                const generateFollowups = async (): Promise<vscode.ChatFollowup[]> => {
+                    let followupsResult: vscode.ChatFollowup[] = [];
+                    //  MCP链接器管理
+                    const connectionsCount = MCPConnectorManager.getInstance().getAvailableConnectionsCount();
+                    if (connectionsCount > 0) {
+                        followupsResult.push({
+                            prompt: vscode.l10n.t('Refresh all MCP Connections'),
+                            label: vscode.l10n.t('Refresh all MCP Connections'),
+                            command: 'refresh',
+                            
+                        });
+                        followupsResult.push({
+                            prompt: vscode.l10n.t('Disconnect all servers'),
+                            label: vscode.l10n.t('Disconnect all servers'),
+                            command: 'disconnectAll'
+                        });
+                    } else {
+                        followupsResult.push({
+                            prompt: vscode.l10n.t('Load & Connect MCP Services'),
+                            label: vscode.l10n.t('Load & Connect MCP Services'),
+                            command: 'load'
+                        });
+                    }
+                    // 然后等待异步添加建议的followups完成
+                    try {
+                        const responseContent = result.metadata?.responseContent as string;
+                        if (!responseContent) {
+                            return followupsResult;
+                        }
+                        // //  适不适合添加followup建议，如果可以则生成
+                        // const evaluationPrompt = [
+                        //     vscode.LanguageModelChatMessage.Assistant(``),
+                        //     vscode.LanguageModelChatMessage.User(``)
+                        // ];
+                        // //  调用LLM请求进行评估
+                        // const { requestModel, responseMsg } = await LLMRequest(evaluationPrompt);
+                        // // 检查评估结果
+                        // if (!responseMsg?.content || 
+                        //     !responseMsg.content.toString().toLowerCase().includes('适合')) {
+                        //     return followups;
+                        // }
+                        //TODO...
+
+                    } catch (error) {
+                        GlobalChannel.getInstance().appendLog(
+                            vscode.l10n.t('Error generating followup suggestions: {0}', 
+                            error instanceof Error ? error.message : String(error))
+                        );
+                    }
+                    return followupsResult;
+                };
+                return generateFollowups();
             }
         };
         // 聊天角色释放时处理

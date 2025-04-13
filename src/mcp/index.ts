@@ -471,7 +471,6 @@ export class MCPConnection {
                             this.client.setNotificationHandler(
                                 ToolListChangedNotificationSchema,
                                 async (notification) => {
-                                    GlobalChannel.getInstance().appendLog("工具列表变更，刷新中...");
                                     await this.refreshTools(timeoutController.signal);
                                 }
                             );
@@ -479,7 +478,6 @@ export class MCPConnection {
                             this.client.setNotificationHandler(
                                 ResourceListChangedNotificationSchema,
                                 async (notification) => {
-                                    GlobalChannel.getInstance().appendLog("资源列表变更，刷新中...");
                                     await this.refreshResources(timeoutController.signal);
                                 }
                             );
@@ -487,7 +485,6 @@ export class MCPConnection {
                             this.client.setNotificationHandler(
                                 PromptListChangedNotificationSchema,
                                 async (notification) => {
-                                    GlobalChannel.getInstance().appendLog("提示列表变更，刷新中...");
                                     await this.refreshPrompts(timeoutController.signal);
                                 }
                             );
