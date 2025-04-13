@@ -67,6 +67,8 @@
     "Attempting to connect to local MCP server process: {0}": "尝试连接到本地MCP服务进程：{0}",
     "Invalid executable. Could not find: {0}": "未找到可执行文件：{0}",
     "Connect to local MCP server process timeout after {0}ms": "连接到本地MCP服务进程超时",
+    "Error: No available model found.": "错误：未找到可用模型",
+    "Error: {0}": "错误：{0}",
     "No valid reference file found. Please drag files here or check files you attached again.": "没有找到有效的引用文件，请向这里拖拽相关文件或者再次检查你附加的文件",
     "Connected to remote MCP server. The connection id is {0}. If you'd like to disconnect from it, use this id with /disconnect command.": "已连接到远程MCP服务进程，连接ID是{0}，如果你想断开此连接，使用/disconnect指令并配合这个ID。",
     "Connected to local MCP server process. The connection id is {0}. If you'd like to disconnect from it, use this id with /disconnect command.": "已连接到本地MCP服务进程，连接ID是{0}，如果你想断开此连接，使用/disconnect指令并配合这个ID。",

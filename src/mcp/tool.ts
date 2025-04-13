@@ -3,8 +3,9 @@
 import * as vscode from 'vscode';
 import { AdHocChatTool } from "@vscode/chat-extension-utils";
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
-import { CallToolRequest, CallToolResultSchema } from '@modelcontextprotocol/sdk/types.js';
+import { CallToolRequest, CallToolResultSchema, Progress } from '@modelcontextprotocol/sdk/types.js';
 import { GlobalChannel } from '../channel';
+import { RequestOptions } from '@modelcontextprotocol/sdk/shared/protocol.js';
 
 //  临时创建工具[MCP服务工具]
 export class AdHocMCPTool implements AdHocChatTool<any> {
@@ -32,12 +33,13 @@ export class AdHocMCPTool implements AdHocChatTool<any> {
                 name: this.name,
                 arguments: options.input
             };
-            const callingResult = await this._mcpInnerClient.callTool(payload, CallToolResultSchema, {
-                'timeout': 300000,// 5mins
-                onprogress: (progress) => {
+            const requestOptions : RequestOptions = {
+                timeout: 300000,// 5mins
+                onprogress: (progress: Progress) => { 
                     GlobalChannel.getInstance().appendLog(vscode.l10n.t("Invoke Tool {0}, Progress: {1}", this.name, typeof progress === 'object' ? JSON.stringify(progress): String(progress)));
-                }
-            });
+                } 
+            };
+            const callingResult = await this._mcpInnerClient.callTool(payload, CallToolResultSchema, requestOptions);
             const parsedCallingResult = CallToolResultSchema.parse(callingResult);
 
             if (parsedCallingResult.isError) {

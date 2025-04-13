@@ -7,6 +7,8 @@ import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js"
 import { DEFAULT_MCP_TIMEOUT, MCPConnectionStatus, MCPOptions, MCPPrompt, MCPResource, MCPServerStatus, MCPTool } from "./types";
 import { GlobalChannel } from "../channel";
 import { SSEClientTransport } from '@modelcontextprotocol/sdk/client/sse.js';
+import { CreateMessageRequestSchema, ListRootsRequestSchema, ListRootsResultSchema, PromptListChangedNotificationSchema, ResourceListChangedNotificationSchema, ToolListChangedNotificationSchema } from '@modelcontextprotocol/sdk/types.js';
+import { LLMRequest } from '../chat/utils';
 
 export class MCPConnectorManager {
 
@@ -271,7 +273,10 @@ export class MCPConnection {
                 version: "1.0.0",
             },
             {
-                capabilities: {},
+                capabilities: {
+                    sampling: {}, // 添加sampling能力
+                    roots: {}, // 添加roots能力
+                }
             },
         );
 
@@ -321,6 +326,46 @@ export class MCPConnection {
             tools: this.tools,
             status: this.status,
         };
+    }
+
+    private async refreshTools(signal?: AbortSignal) {
+
+        try {
+            const { tools } = await this.client.listTools({}, { signal });
+            this.tools = tools;
+        } catch (e) {
+            let errorMessage = `Error loading tools for MCP Server ${this.options.name}`;
+            if (e instanceof Error) {
+                errorMessage += `: ${e.message}`;
+            }
+            this.errors.push(errorMessage);
+        }
+    }
+
+    private async refreshResources(signal?: AbortSignal) {
+        try {
+            const { resources } = await this.client.listResources({}, { signal });
+            this.resources = resources;
+        } catch (e) {
+            let errorMessage = `Error loading resources for MCP Server ${this.options.name}`;
+            if (e instanceof Error) {
+                errorMessage += `: ${e.message}`;
+            }
+            this.errors.push(errorMessage);
+        }
+    }
+
+    private async refreshPrompts(signal?: AbortSignal) {
+        try {
+            const { prompts } = await this.client.listPrompts({}, { signal });
+            this.prompts = prompts;
+        } catch (e) {
+            let errorMessage = `Error loading prompts for MCP Server ${this.options.name}`;
+            if (e instanceof Error) {
+                errorMessage += `: ${e.message}`;
+            }
+            this.errors.push(errorMessage);
+        }
     }
 
     async connectClient(forceRefresh: boolean, externalSignal: AbortSignal) {
@@ -387,62 +432,80 @@ export class MCPConnection {
                                 }
                             }
 
-                            // TODO register server notification handlers
-                            // this.client.transport?.onmessage(msg => console.log())
-                            // this.client.setNotificationHandler(, notification => {
-                            //   console.log(notification)
-                            // })
+                            //  Roots => ListRootsResultSchema
+                            this.client.setRequestHandler(ListRootsRequestSchema, async (request, extra) => {
+                                // 获取当前工作区
+                                const workspaceFolders = vscode.workspace.workspaceFolders || [];
+                                // 将工作区文件夹转换为MCP根目录格式
+                                const roots = workspaceFolders.map(folder => {
+                                    return {
+                                        uri: folder.uri.toString(), // 使用VS Code URI格式
+                                        name: folder.name          // 工作区文件夹名称
+                                    };
+                                });
+                                return {
+                                    roots: roots
+                                };
+                            });
+
+                            //  Sampling => CreateMessageResultSchema
+                            this.client.setRequestHandler(CreateMessageRequestSchema, async (request, extra) => {
+                                const { messages, modelPreferences, systemPrompt, includeContext, temperature, maxTokens, stopSequences, metadata } = request.params;
+                                const chatMessages = messages.flatMap(msg => {
+                                    if (msg.content.type !== 'text') { return undefined; }
+                                    return msg.role === 'user' 
+                                        ? [vscode.LanguageModelChatMessage.User(msg.content.text)]
+                                        : [vscode.LanguageModelChatMessage.Assistant(msg.content.text)];
+                                }).filter((msg): msg is vscode.LanguageModelChatMessage => msg !== undefined);
+                        
+                                const LLMResponse = await LLMRequest(chatMessages);
+                                return {
+                                    model: LLMResponse.requestModel?.name,
+                                    stopReason: LLMResponse.responseMsg ? 'endTurn' : 'Error',
+                                    role: 'assistant',
+                                    content: { type: 'text', text: LLMResponse.responseMsg }
+                                };
+                            });
+
+                            // 注册服务器通知处理器
+                            this.client.setNotificationHandler(
+                                ToolListChangedNotificationSchema,
+                                async (notification) => {
+                                    GlobalChannel.getInstance().appendLog("工具列表变更，刷新中...");
+                                    await this.refreshTools(timeoutController.signal);
+                                }
+                            );
                             
+                            this.client.setNotificationHandler(
+                                ResourceListChangedNotificationSchema,
+                                async (notification) => {
+                                    GlobalChannel.getInstance().appendLog("资源列表变更，刷新中...");
+                                    await this.refreshResources(timeoutController.signal);
+                                }
+                            );
+                            
+                            this.client.setNotificationHandler(
+                                PromptListChangedNotificationSchema,
+                                async (notification) => {
+                                    GlobalChannel.getInstance().appendLog("提示列表变更，刷新中...");
+                                    await this.refreshPrompts(timeoutController.signal);
+                                }
+                            );
+
                             const capabilities = this.client.getServerCapabilities();
                             // Resources <—> Context Provider
                             if (capabilities?.resources) {
-                                try {
-                                    const { resources } = await this.client.listResources(
-                                        {},
-                                        { signal: timeoutController.signal },
-                                    );
-                                    this.resources = resources;
-                                } catch (e) {
-                                    let errorMessage = `Error loading resources for MCP Server ${this.options.name}`;
-                                    if (e instanceof Error) {
-                                        errorMessage += `: ${e.message}`;
-                                    }
-                                    this.errors.push(errorMessage);
-                                }
+                                await this.refreshResources(timeoutController.signal);
                             }
 
                             // Tools <—> Tools
                             if (capabilities?.tools) {
-                                try {
-                                    const { tools } = await this.client.listTools(
-                                        {},
-                                        { signal: timeoutController.signal },
-                                    );
-                                    this.tools = tools;
-                                } catch (e) {
-                                    let errorMessage = `Error loading tools for MCP Server ${this.options.name}`;
-                                    if (e instanceof Error) {
-                                        errorMessage += `: ${e.message}`;
-                                    }
-                                    this.errors.push(errorMessage);
-                                }
+                                await this.refreshTools(timeoutController.signal);
                             }
 
                             // Prompts <—> Slash commands
                             if (capabilities?.prompts) {
-                                try {
-                                    const { prompts } = await this.client.listPrompts(
-                                        {},
-                                        { signal: timeoutController.signal },
-                                    );
-                                    this.prompts = prompts;
-                                } catch (e) {
-                                    let errorMessage = `Error loading prompts for MCP Server ${this.options.name}`;
-                                    if (e instanceof Error) {
-                                        errorMessage += `: ${e.message}`;
-                                    }
-                                    this.errors.push(errorMessage);
-                                }
+                                await this.refreshPrompts(timeoutController.signal);
                             }
                             this.status = "connected";
                         })(),

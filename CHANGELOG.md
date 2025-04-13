@@ -43,3 +43,8 @@ All notable changes to the "Devlinker - MCP Host" extension will be documented i
 ## 0.3.5
 
 - 添加主页链接
+
+## 0.3.6
+
+- 添加Sampling和Roots的支持，服务端可进行客户端能力查验后使用
+- 添加Prompts支持

@@ -23,14 +23,16 @@
     ```@devlinker /connectRemote http://localhost:8000/sse```
 
 5. 连接成功后会有Connection id返回，事后可以使用此id来断开连接
-6. LLM模型建议GPT-4o，其它模型支持力度不一
+6. LLM模型建议GPT-4o或Claude 3.5/3.7 Sonnet，其它模型支持力度不一
 
 ## 特性
 
-1. 支持MCP Tools与Resources（在不使用/autoContext指令的前提下将进行弹窗，需用户自己选择引用的Resources）  
-2. 支持管理多个MCP服务连接
-3. 支持主动断开连接、主动重新连接MCP服务等功能  
-4. 支持从本地json文件导入并连接MCP服务，须遵循如下格式：
+1. 支持服务端特性：Tools、Resources以及Prompts（在不使用/autoContext指令的前提下将进行弹窗，需用户自己选择引用的Resources），并监听相应列表更新事件
+2. 支持客户端特性：Roots以及Sampling
+3. 监听服务端Tools
+4. 支持管理多个MCP服务连接
+5. 支持主动断开连接、主动重新连接MCP服务等功能  
+6. 支持从本地json文件导入并连接MCP服务，须遵循如下格式：
 
 ```
     {
@@ -95,17 +97,19 @@
 
 5. After successful connection, a Connection id will be returned, which can be used later to disconnect
 
-6. Recommended LLM model is GPT-4o, other models may have limited support
+6. Recommended LLM model are GPT-4o, Claude 3.5 Sonnet, Claude 3.7 Sonnet, other models may have limited support
 
 ## Features
 
-1. Supports MCP Tools and Resources (without using the /autoContext command, a popup will appear requiring users to select which Resources to reference)
+1. Supports MCP server features: Tools, Resources and Prompts (without using the /autoContext command, a popup will appear requiring users to select which Resources to reference), and listening for respective list update events
 
-2. Supports managing multiple MCP service connections
+2. Supports MCP client features: Roots and Sampling
 
-3. Supports actively disconnecting and reconnecting MCP services
+3. Supports managing multiple MCP service connections
 
-4. Supports importing and connecting MCP services from local json files, which must follow this format:
+4. Supports actively disconnecting and reconnecting MCP services
+
+5. Supports importing and connecting MCP services from local json files, which must follow this format:
 
 ```
     {
