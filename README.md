@@ -1,7 +1,7 @@
 # DevLinker - MCP Host 插件
 
 [![GitHub](https://img.shields.io/badge/GitHub-blue?logo=github)](https://github.com/SanChai20/tiny-mcp-host)
-[![VSCode Extension](https://img.shields.io/badge/VS%20Code-007ACC?logo=visual-studio-code&logoColor=white)](https://marketplace.visualstudio.com/items/?itemName=sanchaii.devlinker-mcp-host)
+[![VSCode Extension](https://img.shields.io/badge/VSCode-Extension-blue)](https://marketplace.visualstudio.com/items/?itemName=sanchaii.devlinker-mcp-host)
 
 ## 使用方法
 
