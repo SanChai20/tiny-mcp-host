@@ -1,3 +1,4 @@
+import * as vscode from 'vscode';
 export function getSystemRole() {
     return `
 You are a DevLinker, capable of managing multiple Model Context Protocol (MCP) service connections. 
@@ -25,5 +26,36 @@ MCP resources provide you with the capability to access external data.
 In many cases, you'll need this data to assist in completing specific tasks effectively. 
 Before calling certain MCP tools, it's often beneficial to first attempt using the devlinker-mcp_resources_finder tool 
 to indirectly obtain resource data.
+`.trim();
+}
+
+export function getSuggestionPromptsAssistant(responseContent: string) {
+    return `
+Review the following response that was generated for the user:
+
+${responseContent}
+
+Based on this content, determine if there are additional insights or guidance that would be valuable to provide.
+`.trim();
+}
+
+export function getSuggestionPromptsUser() {
+    return `
+Please evaluate the above response and determine if follow-up suggestions would benefit me. 
+Consider providing:
+- Next steps or implementation guidance I should follow
+- Alternative approaches I could explore 
+- Additional technical context I should consider
+
+Return your suggestions in the following JSON format (maximum 3 items):
+[
+  { 
+    "label": "brief, user-friendly title",
+    "prompt": "request phrased from my perspective as the user (e.g., 'Show me how to...', 'Explain why...', 'What are the trade-offs between...')"
+  }
+]
+
+If no suggestions are warranted, return an empty array [].
+All suggestions must be provided in ${vscode.env.language}.
 `.trim();
 }

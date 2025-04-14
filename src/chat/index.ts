@@ -6,7 +6,7 @@ import { MCPOptions, MCPPrompt } from '../mcp/types';
 import { findActualExecutable } from 'spawn-rx';
 import { getDefaultEnvironment } from '@modelcontextprotocol/sdk/client/stdio.js';
 import { AdHocMCPTool } from '../mcp/tool';
-import { getMCPResourceInstruction, getSystemRole } from './instruction';
+import { getMCPResourceInstruction, getSuggestionPromptsAssistant, getSuggestionPromptsUser, getSystemRole } from './instruction';
 import { readExternalResourceByUri } from '../mcp/resource';
 import { LLMRequest } from './utils';
 import { ResponseCollectorStream } from './streamwrapper';
@@ -484,19 +484,68 @@ export class DevlinkerChatParticipant {
                         if (!responseContent) {
                             return followupsResult;
                         }
-                        // //  适不适合添加followup建议，如果可以则生成
-                        // const evaluationPrompt = [
-                        //     vscode.LanguageModelChatMessage.Assistant(``),
-                        //     vscode.LanguageModelChatMessage.User(``)
-                        // ];
-                        // //  调用LLM请求进行评估
-                        // const { requestModel, responseMsg } = await LLMRequest(evaluationPrompt);
-                        // // 检查评估结果
-                        // if (!responseMsg?.content || 
-                        //     !responseMsg.content.toString().toLowerCase().includes('适合')) {
-                        //     return followups;
-                        // }
-                        //TODO...
+
+                        //  适不适合添加followup建议，如果可以则生成
+                        const evaluationPrompt = [
+                            vscode.LanguageModelChatMessage.Assistant(getSuggestionPromptsAssistant(responseContent)),
+                            vscode.LanguageModelChatMessage.User(getSuggestionPromptsUser())
+                        ];
+                        //  调用LLM请求进行评估
+                        const requestResult = await LLMRequest(evaluationPrompt);   //无须处理工具调用问题
+                        if (!requestResult.responseMsg?.content) {
+                            return followupsResult;
+                        }
+
+                        try {
+                            let textContent = ""
+                            let suggestions: Array<{ label: string, prompt: string }> = [];
+                            for (const part of requestResult.responseMsg.content) {
+                                if (part instanceof vscode.LanguageModelTextPart) {
+                                    textContent += part.value;
+                                }
+                            }
+
+                            try {
+                                // 尝试将整个响应解析为JSON数组或对象
+                                const parsedContent = JSON.parse(textContent);
+                                if (Array.isArray(parsedContent)) {
+                                    // 如果是数组，直接使用
+                                    suggestions = parsedContent.filter(item => 
+                                        typeof item === 'object' && item !== null && 
+                                        typeof item.label === 'string' && 
+                                        typeof item.prompt === 'string'
+                                    );
+                                } else if (typeof parsedContent === 'object' && parsedContent !== null && 
+                                          typeof parsedContent.label === 'string' && 
+                                          typeof parsedContent.prompt === 'string') {
+                                    // 如果是单个对象，放入数组
+                                    suggestions = [parsedContent];
+                                }
+                            } catch (jsonError) {
+                                // JSON解析失败，尝试使用正则表达式提取
+                                const regex = /\{\s*"?label"?\s*:\s*"([^"]*)"?\s*,\s*"?prompt"?\s*:\s*"([^"]*)"\s*\}/g;
+                                let match;
+                                while ((match = regex.exec(textContent)) !== null) {
+                                    suggestions.push({
+                                        label: match[1],
+                                        prompt: match[2]
+                                    });
+                                }
+                            }
+                            
+                            // 将提取的建议添加到followups中
+                            for (const suggestion of suggestions.slice(0, 3)) { // 最多取3条
+                                followupsResult.push({
+                                    label: suggestion.label,
+                                    prompt: suggestion.prompt
+                                });
+                            }
+                        } catch (error) {
+                            GlobalChannel.getInstance().appendLog(
+                                vscode.l10n.t('Error generating followup suggestions: {0}', 
+                                error instanceof Error ? error.message : String(error))
+                            );
+                        }
 
                     } catch (error) {
                         GlobalChannel.getInstance().appendLog(
