@@ -1,31 +1,57 @@
-// MCP连接管理类 负责对外提供连接服务 与vscode聊天逻辑相接
+/**
+ * MCP Connection Manager
+ * 
+ * Solution for managing external connection services and seamless integration with 
+ * VS Code chat functionality. This module orchestrates Model Context Protocol (MCP) 
+ * connections and their complete lifecycle within the extension environment.
+ */
 import * as vscode from 'vscode';
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { Transport } from "@modelcontextprotocol/sdk/shared/transport.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
-//import { WebSocketClientTransport } from "@modelcontextprotocol/sdk/client/websocket.js";
+import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
+import { SSEClientTransport } from '@modelcontextprotocol/sdk/client/sse.js';
 import { DEFAULT_MCP_TIMEOUT, MCPConnectionStatus, MCPOptions, MCPPrompt, MCPResource, MCPServerStatus, MCPTool } from "./types";
 import { GlobalChannel } from "../channel";
-import { SSEClientTransport } from '@modelcontextprotocol/sdk/client/sse.js';
 import { CreateMessageRequestSchema, ListRootsRequestSchema, ListRootsResultSchema, PromptListChangedNotificationSchema, ResourceListChangedNotificationSchema, ToolListChangedNotificationSchema } from '@modelcontextprotocol/sdk/types.js';
 import { LLMRequest } from '../chat/utils';
 
+/**
+ * MCP Connector Manager
+ * 
+ * Enterprise-class Singleton implementation that centralizes management of all MCP connections.
+ * Delivers robust methods for creating, retrieving, and managing MCP connections with high reliability.
+ */
 export class MCPConnectorManager {
 
-    private static instance: MCPConnectorManager;
+    private static instance: MCPConnectorManager;    
+    /** Callback mechanism triggered when connections are refreshed */
     public onConnectionsRefreshed?: () => void;
+    /** High-performance Map for connection ID to MCPConnection object mapping */
     private connections: Map<string, MCPConnection> = new Map();
+    /** Controller for efficiently aborting connection operations */
     private abortController: AbortController = new AbortController();
-
-    private constructor() {}
-
+    /** Private constructor to enforce Singleton design pattern */
+    private constructor() {}    /**
+     * Returns the singleton instance of MCPConnectorManager
+     * Creates a new instance if one doesn't already exist, ensuring resource efficiency
+     * 
+     * @returns The globally accessible MCPConnectorManager instance
+     */
     public static getInstance(): MCPConnectorManager {
         if (!MCPConnectorManager.instance) {
             MCPConnectorManager.instance = new MCPConnectorManager();
         }
         return MCPConnectorManager.instance;
-    }
-
+    }    
+    /**
+     * Creates a new MCP connection with the given ID and options
+     * Returns existing connection if one with the same ID already exists, optimizing resource usage
+     * 
+     * @param id - Unique identifier for the connection, used for tracking and management
+     * @param options - Comprehensive configuration options for the connection
+     * @returns The created or existing MCPConnection instance
+     */
     createConnection(id: string, options: MCPOptions): MCPConnection {
         if (!this.connections.has(id)) {
             const connection = new MCPConnection(options);
@@ -34,12 +60,24 @@ export class MCPConnectorManager {
         } else {
             return this.getConnection(id)!;
         }
-    }
-
+    }    
+    /**
+     * Retrieves an existing connection by ID with optimal performance
+     * 
+     * @param id - Unique identifier for the connection to retrieve
+     * @returns The connection instance or undefined if not found in the registry
+     */
     getConnection(id: string) {
         return this.connections.get(id);
-    }
-
+    }    
+      
+    /**
+     * Validates if a connection with the given ID is in the active connected state
+     * Performs comprehensive status verification for reliability
+     * 
+     * @param id - Unique identifier for the connection to check
+     * @returns True if the connection exists and is in connected state, false otherwise
+     */
     isConnected(id: string) {
         const connection = this.getConnection(id);
         if (connection !== undefined) {
@@ -47,8 +85,15 @@ export class MCPConnectorManager {
             return status.status === 'connected';
         }
         return false;
-    }
-
+    }    
+      
+    /**
+     * Removes a connection with the given ID and gracefully closes it
+     * Ensures proper resource cleanup and connection termination
+     * 
+     * @param id - Unique identifier for the connection to remove from the registry
+     * @returns True if the connection was found and successfully removed, false otherwise
+     */
     async removeConnection(id: string) : Promise<boolean> {
         const connection = this.getConnection(id);
         if (connection) {
@@ -56,37 +101,37 @@ export class MCPConnectorManager {
         }
 
         return this.connections.delete(id);
-    }
-
+    }        
     /**
-     * 断开所有MCP连接并清除连接缓存
-     * @returns 返回成功断开的连接数量
+     * Disconnects all MCP connections and optionally clears the connection cache
+     * Implements comprehensive error handling and logging for enterprise reliability
+     * 
+     * @param clear - Whether to clear the connections registry after disconnecting
      */
     async removeAllConnections(clear: boolean = true): Promise<void> {
         try {
-            // 断开所有连接
+            // Disconnect all connections
             const closePromises = Array.from(this.connections.entries()).map(async ([id, connection]) => {
                 try {
-                    // 中止任何挂起的连接尝试
-                    connection.abortController.abort();
-                    // 关闭客户端连接
+                    // Abort any pending connection attempts
+                    connection.abortController.abort();                    
+                    // Close client connection
                     await connection.client.close();
                 } catch (e) {
-                    // 即使关闭失败也继续处理
+                    // Continue processing even if closing fails
                     const errorMessage = e instanceof Error ? e.message : String(e);
                     GlobalChannel.getInstance().appendLog(vscode.l10n.t("Error closing connection {0}, {1}", id, errorMessage));
                 }
             });
 
-            // 等待所有关闭操作完成
-            await Promise.all(closePromises);
-
-            // 清空连接映射
+            // Wait for all close operations to complete
+            await Promise.all(closePromises);            
+            // Clear connection map if requested
             if (clear) {
                 this.connections.clear();
             }
 
-            // 通知刷新连接
+            // Notify connection refresh
             if (this.onConnectionsRefreshed) {
                 this.onConnectionsRefreshed();
             }
@@ -143,19 +188,18 @@ export class MCPConnectorManager {
                 const connection = this.getConnection(serverId);
                 if (!connection) {
                     return;
-                }
-    
+                }                
                 try {
-                    // 1. 硬重置连接
+                    // 1. Complete client and transport layer reset
                     await connection.hardReset();
     
-                    // 2. 创建新的AbortController
+                    // 2. Create new AbortController
                     connection.abortController = new AbortController();
     
-                    // 3. 延迟确保资源释放
+                    // 3. Delay to ensure resource release
                     await new Promise(resolve => setTimeout(resolve, 500));
     
-                    // 4. 重新建立连接
+                    // 4. Re-establish connection
                     await connection.connectClient(
                         true, 
                         this.abortController.signal
@@ -193,16 +237,27 @@ export class MCPConnectorManager {
                 }
             })(),
         ]);
-    }
-
+    }    
+    
+    /**
+     * Retrieves detailed status information for all managed connections
+     * Augments status data with client instances for comprehensive reporting
+     * 
+     * @returns Array of status objects with client references
+     */
     getStatuses(): (MCPServerStatus & { client: Client })[] {
         return Array.from(this.connections.values()).map((connection) => ({
             ...connection.getStatus(),
             client: connection.client,
         }));
     }
-
-    // 获取所有连接的工具
+    
+    /**
+     * Retrieves all tools from all registered connections
+     * Provides comprehensive tool inventory for management purposes
+     * 
+     * @returns Array of objects containing connection ID and associated tools
+     */
     getAllConnectionTools(): { id: string; tools: MCPTool[] }[] {
         return Array.from(this.connections.entries()).map(([id, connection]) => ({
             id: id,
@@ -210,15 +265,26 @@ export class MCPConnectorManager {
         }));
     }
 
-    // 获取已连接服务的工具
+    
+    /**
+     * Retrieves tools from actively connected servers only
+     * Filters for operational connections to ensure reliability
+     * 
+     * @returns Array of objects containing client instance and available tools
+     */
     getAvailableConnectionTools() : { client: Client; tools: MCPTool[] }[] {
         return Array.from(this.connections.values()).filter(connection => connection.status === "connected").map(connection => ({
             client: connection.client,
             tools: connection.tools
         }));
-    }
-
-    // 获取已连接服务的Resources
+    }    
+    
+    /**
+     * Retrieves resources from connected servers with their associated IDs
+     * Filters for active connections with available resources
+     * 
+     * @returns Array of objects containing connection ID and available resources
+     */
     getAvailableConnectionResourcesWithId(): { id: string; resources: MCPResource[] }[] {
         return Array.from(this.connections.entries()).filter(([id, connection]) => connection.status === "connected" && connection.resources.length > 0).map(([id, connection]) => ({
             id: id,
@@ -226,18 +292,35 @@ export class MCPConnectorManager {
         }));
     }
     
-    // 获取已连接服务的Resources
+    /**
+     * Retrieves resources from connected servers with their client instances
+     * Optimized for direct client access when utilizing resources
+     * 
+     * @returns Array of objects containing client instance and available resources
+     */
     getAvailableConnectionResourcesWithClient(): { client: Client; resources: MCPResource[] }[] {
         return Array.from(this.connections.values()).filter(connection => connection.status === "connected" && connection.resources.length > 0).map(connection => ({
             client: connection.client,
             resources: connection.resources
         }));
-    }
-
+    }    
+    /**
+     * Retrieves count of currently available active connections
+     * Provides real-time connection health metrics
+     * 
+     * @returns Number of successfully connected MCP servers
+     */
     getAvailableConnectionsCount(): number {
         return Array.from(this.connections.values()).filter((connection) => connection.status === "connected").length;
     }
 
+    /**
+     * Locates connection by specific tool name across all connections
+     * Enables tool-based routing to appropriate connection endpoints
+     * 
+     * @param toolName - The name of the tool to search for
+     * @returns Object containing connection and ID if found, undefined otherwise
+     */
     findConnectionByToolName(toolName: string): { connection: MCPConnection; id: string } | undefined {
         for (const [id, connection] of this.connections.entries()) {
             if (connection.tools.some((tool) => tool.name === toolName)) {
@@ -245,69 +328,99 @@ export class MCPConnectorManager {
             }
         }
         return undefined;
-        //return Array.from(this.connections.values()).find((connection) => connection.tools.some((tool) => tool.name === toolName));
     }
 
 }
 
+/**
+ * MCP Connection Instance
+ * 
+ * Encapsulates a single Model Context Protocol connection with robust lifecycle management.
+ * Handles connection establishment, capability discovery, and resource management.
+ */
 export class MCPConnection {
 
+    /** Client instance for MCP communications */
     public client: Client;
+    /** Transport layer used for connection */
     private transport: Transport;
 
+    /** Promise tracking active connection attempt */
     private connectionPromise: Promise<unknown> | null = null;
+    /** Controller for aborting operations */
     public abortController: AbortController;
 
+    /** Current connection status */
     public status: MCPConnectionStatus = "not-connected";
+    /** Collection of error messages */
     public errors: string[] = [];
 
+    /** Available prompts from the MCP server */
     public prompts: MCPPrompt[] = [];
+    /** Available tools from the MCP server */
     public tools: MCPTool[] = [];
-    public resources: MCPResource[] = [];
-
+    /** Available resources from the MCP server */
+    public resources: MCPResource[] = [];    
+    
+    /**
+     * Creates a new MCP connection instance
+     * Initializes transport and client with appropriate configuration
+     * 
+     * @param options - Configuration options for the connection
+     */
     constructor(private readonly options: MCPOptions) {
         this.transport = this.constructTransport(options);
         this.client = new Client(
             {
                 name: "devlinker-client",
-                version: "1.0.0",
+                version: "0.3.8",
             },
             {
-                capabilities: {
-                    sampling: {}, // 添加sampling能力
-                    roots: {}, // 添加roots能力
-                }
+                capabilities: { sampling: {},  roots: {} }
             },
         );
 
         this.abortController = new AbortController();
-    }
-
+    }    
+    
+    /**
+     * Performs a complete reset of the client and transport layer
+     * Ensures clean state for connection re-establishment
+     */
     async hardReset() {
-        // 完全重置客户端和传输层
+        // Complete client and transport layer reset
         await this.client.close();
         this.transport = this.constructTransport(this.options);
         this.client = new Client(
-            { name: "devlinker-client", version: "1.0.0" },
-            { capabilities: {} }
+            { name: "devlinker-client", version: "0.3.8" },
+            { capabilities: { sampling: {},  roots: {} } }
         );
         this.status = "not-connected";
-    }
-
+    }    
+    
+    /**
+     * Constructs the appropriate transport layer based on connection options
+     * Supports multiple transport protocols for versatile connectivity
+     * 
+     * @param options - Configuration options containing transport specifications
+     * @returns Initialized transport instance
+     * @throws Error for unsupported transport types
+     */
     private constructTransport(options: MCPOptions): Transport {
         switch (options.transport.type) {
             case "stdio":
                 const env: Record<string, string> = options.transport.env || {};
-                // if (process.env.PATH !== undefined) {
-                //     env.PATH = process.env.PATH;
-                // }
                 return new StdioClientTransport({
                     command: options.transport.command,
                     args: options.transport.args,
                     env,
                 });
-            // case "websocket":
-            //     return new WebSocketClientTransport(new URL(options.transport.url));
+            case "streamableHttp":
+                return new StreamableHTTPClientTransport(new URL(options.transport.url), {
+                    requestInit: {
+                        headers: options.transport.requestHeaders,
+                    }
+                });
             case "sse":
                 return new SSEClientTransport(new URL(options.transport.url));
             default:
@@ -315,8 +428,14 @@ export class MCPConnection {
                     `Unsupported transport type: ${(options.transport as any).type}`,
                 );
         }
-    }
-
+    }    
+    
+    /**
+     * Returns comprehensive status information for this connection
+     * Combines configuration options with current state data
+     * 
+     * @returns Detailed status object for monitoring and diagnostics
+     */
     getStatus(): MCPServerStatus {
         return {
             ...this.options,
@@ -326,10 +445,15 @@ export class MCPConnection {
             tools: this.tools,
             status: this.status,
         };
-    }
-
+    }    
+    
+    /**
+     * Refreshes the available tools from the MCP server
+     * Updates local tool registry with server-provided capabilities
+     * 
+     * @param signal - Optional abort signal for cancellation support
+     */
     private async refreshTools(signal?: AbortSignal) {
-
         try {
             const { tools } = await this.client.listTools({}, { signal });
             this.tools = tools;
@@ -342,6 +466,12 @@ export class MCPConnection {
         }
     }
 
+    /**
+     * Refreshes the available resources from the MCP server
+     * Updates local resource registry with server-provided capabilities
+     * 
+     * @param signal - Optional abort signal for cancellation support
+     */
     private async refreshResources(signal?: AbortSignal) {
         try {
             const { resources } = await this.client.listResources({}, { signal });
@@ -355,6 +485,12 @@ export class MCPConnection {
         }
     }
 
+    /**
+     * Refreshes the available prompts from the MCP server
+     * Updates local prompt registry with server-provided capabilities
+     * 
+     * @param signal - Optional abort signal for cancellation support
+     */
     private async refreshPrompts(signal?: AbortSignal) {
         try {
             const { prompts } = await this.client.listPrompts({}, { signal });
@@ -366,8 +502,13 @@ export class MCPConnection {
             }
             this.errors.push(errorMessage);
         }
-    }
-
+    }    /**
+     * Establishes a connection to the MCP server
+     * Manages connection lifecycle and handles reconnection scenarios
+     * 
+     * @param forceRefresh - Whether to force reconnection even if already connected
+     * @param externalSignal - Signal for external cancellation of connection attempt
+     */
     async connectClient(forceRefresh: boolean, externalSignal: AbortSignal) {
         if (!forceRefresh) {
             // Already connected
@@ -434,13 +575,13 @@ export class MCPConnection {
 
                             //  Roots => ListRootsResultSchema
                             this.client.setRequestHandler(ListRootsRequestSchema, async (request, extra) => {
-                                // 获取当前工作区
+                                // Get current workspace                                
                                 const workspaceFolders = vscode.workspace.workspaceFolders || [];
-                                // 将工作区文件夹转换为MCP根目录格式
+                                // Convert workspace folder to MCP root directory format
                                 const roots = workspaceFolders.map(folder => {
                                     return {
-                                        uri: folder.uri.toString(), // 使用VS Code URI格式
-                                        name: folder.name          // 工作区文件夹名称
+                                        uri: folder.uri.toString(), // Use VS Code URI format
+                                        name: folder.name          // Workspace folder name
                                     };
                                 });
                                 return {
@@ -467,7 +608,7 @@ export class MCPConnection {
                                 };
                             });
 
-                            // 注册服务器通知处理器
+                            // Register server notification handlers
                             this.client.setNotificationHandler(
                                 ToolListChangedNotificationSchema,
                                 async (notification) => {

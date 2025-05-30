@@ -4,51 +4,61 @@ All notable changes to the "Devlinker - MCP Host" extension will be documented i
 
 ## 0.2.7
 
-- 首次发布
-- MCP主机，可管理多个连接
-- 支持工具链和外部资源
+- Initial release
+- MCP host with multiple connection management
+- Support for toolchain and external resources
 
 ## 0.2.8
 
-- 添加详细使用说明
+- Added detailed usage instructions
 
 ## 0.2.9
 
-- 处理 undefined 或空字符串输入问题
-- 支持引号中的空格参数
-- 增加更详细的日志记录
+- Fixed undefined or empty string input issues
+- Added support for space parameters in quotes
+- Improved detailed logging
 
 ## 0.3.0
 
-- 服务端未列出Resource时不再弹窗选择
+- No longer shows selection dialog when server doesn't list Resources
 
 ## 0.3.1
 
-- 修改说明
+- Updated documentation
 
 ## 0.3.2
 
-- 修复SSE远程连接BUG
-- 去除websocket远程连接
-- 修复pkce-challenge包导入问题
+- Fixed SSE remote connection bug
+- Removed websocket remote connection
+- Fixed pkce-challenge package import issue
 
 ## 0.3.3
 
-- 修改SSE连接说明
+- Updated SSE connection documentation
 
 ## 0.3.4
 
-- 添加Github
+- Added Github
 
 ## 0.3.5
 
-- 添加主页链接
+- Added homepage link
 
 ## 0.3.6
 
-- 添加Sampling和Roots的支持，服务端可进行客户端能力查验后使用
+- Added support for Sampling and Roots, allowing servers to verify client capabilities before use
 
 ## 0.3.7
 
-- 添加followups支持
-- 添加StreamWrapper
+- Added followups support
+- Added StreamWrapper
+
+## 0.3.8
+
+- Added Streamable Http support
+- Modified MCP connection method
+- Updated MCP connection configuration format
+
+## 0.3.9
+
+- Remove unnecessary logs

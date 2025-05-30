@@ -1,3 +1,17 @@
+/**
+ * DevLinker Chat Integration Module
+ * 
+ * This module provides chat integration capabilities for the Model Context Protocol (MCP).
+ * It handles various connection methods, resource management, and intelligent chat interactions
+ * within the VS Code environment.
+ * 
+ * Features:
+ * - Secure MCP server connections via multiple transport protocols (HTTP, SSE, stdio)
+ * - Resource acquisition and management across connected MCP endpoints
+ * - Intelligent follow-up suggestion generation with LLM assistance
+ * - Comprehensive error handling and connection lifecycle management
+ */
+
 import * as vscode from 'vscode';
 import * as chatUtils from '@vscode/chat-extension-utils';
 import { MCPConnectorManager } from '../mcp';
@@ -11,11 +25,27 @@ import { readExternalResourceByUri } from '../mcp/resource';
 import { LLMRequest } from './utils';
 import { ResponseCollectorStream } from './streamwrapper';
 
+/**
+ * DevLinker Chat Participant
+ * 
+ * Implements a sophisticated chat participant for VS Code's chat interface.
+ * Manages MCP connections, provides command processing, and enables advanced
+ * interaction with MCP resources and tools.
+ * 
+ * Follows the Singleton design pattern to ensure consistent connection management
+ * across the application lifecycle.
+ */
 export class DevlinkerChatParticipant {
 
     private static instance: DevlinkerChatParticipant;
     constructor() {}
 
+    /**
+     * Returns the singleton instance of DevlinkerChatParticipant
+     * Creates a new instance if one doesn't already exist
+     * 
+     * @returns The globally accessible DevlinkerChatParticipant instance
+     */
     public static getInstance(): DevlinkerChatParticipant {
         if (!DevlinkerChatParticipant.instance) {
             DevlinkerChatParticipant.instance = new DevlinkerChatParticipant();
@@ -23,15 +53,81 @@ export class DevlinkerChatParticipant {
         return DevlinkerChatParticipant.instance;
     }
 
-    private async connectToRemoteServer(stream: vscode.ChatResponseStream, url: string) {
+    /**
+     * Establishes connection to an HTTP-based MCP server with streaming capabilities
+     * Manages connection lifecycle and provides comprehensive error handling
+     * 
+     * @param stream - VS Code response stream for user feedback
+     * @param connectionOptions - Configuration options including URL and headers
+     */
+    private async connectToStreamableHttp(stream: vscode.ChatResponseStream, connectionOptions: { url: string, requestHeaders?: { [key: string]: string } }) 
+    {
+        try 
+        {
+            if (connectionOptions.url === undefined || connectionOptions.url === "") {
+                const response = vscode.l10n.t("Connect to MCP server failed. {0}", vscode.l10n.t("Url is invalid."));
+                stream.markdown(response);
+                return;
+            }
+            // Create connection options
+            const options: MCPOptions = {
+                id: connectionOptions.url,
+                name: connectionOptions.url,
+                transport: {
+                    type: "streamableHttp",
+                    url: connectionOptions.url,
+                    requestHeaders: connectionOptions.requestHeaders
+                },
+                timeout: 10000 // 10-second timeout
+            };            
+            // Create and establish connection
+            const connection = MCPConnectorManager.getInstance().createConnection(options.id, options);
+            // Refresh connection
+            await MCPConnectorManager.getInstance().refreshConnection(options.id);
+            const connStatus = connection.getStatus();            
+            if (connStatus.status === 'connected') {
+                const response = vscode.l10n.t("Connected to remote MCP server. The connection id is {0}. If you'd like to disconnect from it, use this id with /disconnect command.", connectionOptions.url);
+                GlobalChannel.getInstance().appendLog(response);
+                stream.markdown(response);
+                // Update connection count bar
+                const connectionCount = MCPConnectorManager.getInstance().getAvailableConnectionsCount();
+                GlobalChannel.getInstance().updateConnectionCountBar(connectionCount);
+                return;
+            } else if (connStatus.status === 'error') {
+                const errors = connStatus.errors.join('\n');
+                const response = vscode.l10n.t("Connect to MCP server failed. {0}", errors);
+                stream.markdown(response);
+                return;
+            } else {
+                const response = vscode.l10n.t("Connect to remote MCP server process timeout");
+                stream.markdown(response);
+                return;
+            }
+
+        } catch (e) {
+            const response = vscode.l10n.t("Connect to MCP server failed. {0}", e instanceof Error ? e.message : String(e));
+            stream.markdown(response);
+            return;
+        }
+
+    }
+
+    /**
+     * Establishes connection to an SSE (Server-Sent Events) MCP server
+     * Manages connection lifecycle with real-time streaming capabilities
+     * 
+     * @param stream - VS Code response stream for user feedback
+     * @param url - The URL endpoint for the SSE server
+     */
+    private async connectToSSE(stream: vscode.ChatResponseStream, url: string) {
         try 
         {
             if (url === undefined || url === "") {
                 const response = vscode.l10n.t("Connect to remote SSE MCP server failed. {0}", vscode.l10n.t("Url is invalid."));
                 stream.markdown(response);
                 return;
-            }
-            // 创建连接选项
+            }            
+            // Create connection options
             const options: MCPOptions = {
                 id: url,
                 name: url,
@@ -39,18 +135,18 @@ export class DevlinkerChatParticipant {
                     type: 'sse',
                     url
                 },
-                timeout: 10000 // 10秒超时
-            };
-            // 创建并连接
+                timeout: 10000 // 10-second timeout
+            };            
+            // Create and establish connection
             const connection = MCPConnectorManager.getInstance().createConnection(options.id, options);
-            // 刷新连接
+            // Refresh connection
             await MCPConnectorManager.getInstance().refreshConnection(options.id);
-            const connStatus = connection.getStatus();
+            const connStatus = connection.getStatus();            
             if (connStatus.status === 'connected') {
                 const response = vscode.l10n.t("Connected to remote MCP server. The connection id is {0}. If you'd like to disconnect from it, use this id with /disconnect command.", url);
                 GlobalChannel.getInstance().appendLog(response);
                 stream.markdown(response);
-                // 更新连接计数栏
+                // Update connection count bar
                 const connectionCount = MCPConnectorManager.getInstance().getAvailableConnectionsCount();
                 GlobalChannel.getInstance().updateConnectionCountBar(connectionCount);
                 return;
@@ -72,19 +168,28 @@ export class DevlinkerChatParticipant {
         }
     }
 
-    private async connectToLocalServer(stream: vscode.ChatResponseStream, execCmd: string, execArgs: string[] = []) : Promise<void> {
+    /**
+     * Establishes connection to a local process-based MCP server via stdio
+     * Enables secure local execution with environment isolation
+     * 
+     * @param stream - VS Code response stream for user feedback
+     * @param execCmd - The executable command to run
+     * @param execArgs - Command line arguments for the executable
+     * @returns Promise that resolves when connection attempt completes
+     */
+    private async connectToStdio(stream: vscode.ChatResponseStream, execCmd: string, execArgs: string[] = []) : Promise<void> {
         if (!execCmd || execCmd.trim() === '') {
             stream.markdown(vscode.l10n.t("Invalid command. Command cannot be empty."));
             return;
         }
         
-        try {
-            // 生成一个安全的唯一连接ID
+        try {            
+            // Generate a secure unique connection ID
             const safeExecCmd = execCmd.replace(/[^\w-]/g, '_');
             const safeExecArgs = execArgs.map(arg => arg.replace(/[^\w-]/g, '_'));
             const connectionId = `MCP_Connection_${safeExecCmd}_${safeExecArgs.join('_')}`;
             
-            // 检查连接是否已存在
+            // Check if connection already exists
             if (MCPConnectorManager.getInstance().isConnected(connectionId)) {
                 stream.markdown(vscode.l10n.t("The server process is already connected with ID: {0}", connectionId));
                 return;
@@ -93,24 +198,22 @@ export class DevlinkerChatParticipant {
             const connecting = vscode.l10n.t("Attempting to connect to local MCP server process: {0}", `${execCmd} ${execArgs.join(' ')}`);
             stream.progress(connecting);
             GlobalChannel.getInstance().appendLog(connecting);
-            
-            // 确定执行命令
+            // Determine execution command
             const { cmd: pCmd, args: pArgs } = findActualExecutable(execCmd, execArgs);
             
-            // 验证命令有效性
+            // Validate command validity
             if (!pCmd) {
                 const response = vscode.l10n.t("Invalid executable. Could not find: {0}", execCmd);
                 stream.markdown(response);
                 return;
             }
-            
-            // 设置环境变量
+            // Set environment variables
             const env = { ...getDefaultEnvironment() };
             
-            // 使用配置或默认值的超时设置
-            const timeoutMs = 10000; // 可以从配置中读取
+            // Use timeout setting from configuration or default value
+            const timeoutMs = 10000; // Can be read from configuration
             
-            // 创建连接选项
+            // Create connection options
             const options: MCPOptions = {
                 id: connectionId,
                 name: connectionId,
@@ -122,23 +225,21 @@ export class DevlinkerChatParticipant {
                 },
                 timeout: timeoutMs
             };
-            
-            // 创建并连接
-            //GlobalChannel.getInstance().appendLog(`Creating connection to: ${pCmd} ${pArgs.join(' ')}`);
+            // Create and connect
+            // GlobalChannel.getInstance().appendLog(`Creating connection to: ${pCmd} ${pArgs.join(' ')}`);
             const connection = MCPConnectorManager.getInstance().createConnection(options.id, options);
             
-            // 刷新连接
-            //GlobalChannel.getInstance().appendLog(`Refreshing connection: ${connectionId}`);
+            // Refresh connection
+            // GlobalChannel.getInstance().appendLog(`Refreshing connection: ${connectionId}`);
             await MCPConnectorManager.getInstance().refreshConnection(options.id);
     
             const connStatus = connection.getStatus();
-            
             if (connStatus.status === 'connected') {
                 const response = vscode.l10n.t("Connected to local MCP server process. The connection id is {0}. If you'd like to disconnect from it, use this id with /disconnect command.", connectionId);
                 GlobalChannel.getInstance().appendLog(response);
                 stream.markdown(response);
                 
-                // 更新连接计数栏
+                // Update connection count bar
                 const connectionCount = MCPConnectorManager.getInstance().getAvailableConnectionsCount();
                 GlobalChannel.getInstance().updateConnectionCountBar(connectionCount);
                 return;
@@ -147,16 +248,14 @@ export class DevlinkerChatParticipant {
                 const response = vscode.l10n.t("Connect to local MCP server process failed. {0}", errors);
                 GlobalChannel.getInstance().appendLog(`Connection error: ${errors}`);
                 stream.markdown(response);
-                
-                // 尝试清理失败的连接
+                  // Attempt to clean up failed connection
                 await MCPConnectorManager.getInstance().removeConnection(connectionId);
                 return;
             } else {
                 const response = vscode.l10n.t("Connect to local MCP server process timeout after {0}ms", timeoutMs);
                 GlobalChannel.getInstance().appendLog(`Connection timeout: ${connectionId}`);
                 stream.markdown(response);
-                
-                // 尝试清理超时的连接
+                  // Attempt to clean up timed-out connection
                 await MCPConnectorManager.getInstance().removeConnection(connectionId);
                 return;
             }
@@ -169,6 +268,13 @@ export class DevlinkerChatParticipant {
         }
     }
 
+    /**
+     * Disconnects and removes all active MCP server connections
+     * Performs complete cleanup of connection resources
+     * 
+     * @param stream - VS Code response stream for user feedback
+     * @returns Promise that resolves when disconnection completes
+     */
     private async disconnectToAllServers(stream: vscode.ChatResponseStream) : Promise<void> {
         try {
             await MCPConnectorManager.getInstance().removeAllConnections();
@@ -183,10 +289,17 @@ export class DevlinkerChatParticipant {
         }
     }
 
+    /**
+     * Refreshes all MCP server connections
+     * Re-establishes connections that may have timed out or disconnected
+     * 
+     * @param stream - VS Code response stream for user feedback
+     * @returns Promise that resolves when refresh completes
+     */
     private async refreshAllServers(stream: vscode.ChatResponseStream) : Promise<void> {
         try {
             await MCPConnectorManager.getInstance().relinkConnections();
-            // 更新连接计数栏
+            // Update connection count bar
             const connectionCount = MCPConnectorManager.getInstance().getAvailableConnectionsCount();
             GlobalChannel.getInstance().updateConnectionCountBar(connectionCount);
             const response = vscode.l10n.t("All mcp connections have been refreshed successfully.");
@@ -199,6 +312,14 @@ export class DevlinkerChatParticipant {
         }
     }
 
+    /**
+     * Disconnects from a specific MCP server by connection ID
+     * Performs targeted resource cleanup for the specified connection
+     * 
+     * @param stream - VS Code response stream for user feedback
+     * @param connectionID - Unique identifier for the connection to disconnect
+     * @returns Promise that resolves when disconnection completes
+     */
     private async disconnectToServer(stream: vscode.ChatResponseStream, connectionID: string) : Promise<void> {
         try {
             if (connectionID === undefined) {
@@ -209,14 +330,14 @@ export class DevlinkerChatParticipant {
             stream.progress(vscode.l10n.t("Try to disconnect to the MCP server"));
             const hasRemoved = await MCPConnectorManager.getInstance().removeConnection(connectionID);
             if (hasRemoved) {
-                // 更新连接计数栏
+                // Update connection count bar
                 const connectionCount = MCPConnectorManager.getInstance().getAvailableConnectionsCount();
                 GlobalChannel.getInstance().updateConnectionCountBar(connectionCount);
                 const response = vscode.l10n.t("Disconnect success. The MCP server: {0} has been removed.", connectionID);
                 stream.markdown(response);
                 return;
             } else {
-                //找不到连接
+                // Connection not found
                 const response = vscode.l10n.t("Disconnect failed. The MCP server: {0} not found.", connectionID);
                 stream.markdown(response);
                 return;
@@ -228,6 +349,13 @@ export class DevlinkerChatParticipant {
         }
     }
 
+    /**
+     * Connects to multiple MCP services defined in a configuration file
+     * Supports batch connection establishment for enterprise deployment scenarios
+     * 
+     * @param request - VS Code chat request containing file references
+     * @param stream - VS Code response stream for user feedback
+     */
     private async connectServicesFromFile(request: vscode.ChatRequest, stream: vscode.ChatResponseStream) {
         try {
             if (!request.references || request.references.length === 0) {
@@ -240,34 +368,39 @@ export class DevlinkerChatParticipant {
                 return;
             }
             for (const reference of request.references) {
-                // 判断 reference.value 是否为 Uri
+                // Check if reference.value is a Uri
                 if (reference.value instanceof vscode.Uri) {
                     try {
-                        // 使用 openTextDocument 打开文件
+                        // Use openTextDocument to open the file
                         const doc = await vscode.workspace.openTextDocument(reference.value);
                         const fileContent = doc.getText();
                         const services = JSON.parse(fileContent);
+                        
+                        const stdioServices: string[] = services.Stdio || [];
+                        const sseServices: string[] = services.SSE || [];
+                        const shttpServices: { url: string, requestHeaders?: { [key: string]: string } }[] = services.StreamableHttp || [];
 
-                        const localServices: string[] = services.local || [];
-                        const remoteServices: string[] = services.remote || [];
-
-                        if (localServices.length === 0 && remoteServices.length === 0) {
+                        if (stdioServices.length === 0 && sseServices.length === 0 && shttpServices.length === 0) {
                             stream.markdown(vscode.l10n.t("No valid mcp service found."));
                             continue;
                         }
 
-                        for (const localCmd of localServices) {
-                            const parsedResult = this.parseCommands(localCmd);
+                        for (const stdioService of stdioServices) {
+                            const parsedResult = this.parseCommands(stdioService);
                             if (parsedResult === undefined) {
                                 const response = vscode.l10n.t("Invalid command.");
                                 stream.markdown(response);
                                 continue;
                             }
-                            await this.connectToLocalServer(stream, parsedResult.execCmd, parsedResult.execArgs);
+                            await this.connectToStdio(stream, parsedResult.execCmd, parsedResult.execArgs);
                         }
 
-                        for (const remoteCmd of remoteServices) {
-                            await this.connectToRemoteServer(stream, remoteCmd);
+                        for (const sseService of sseServices) {
+                            await this.connectToSSE(stream, sseService);
+                        }
+
+                        for (const shttpService of shttpServices) {
+                            await this.connectToStreamableHttp(stream, shttpService);
                         }
                         
                     } catch (err) {
@@ -280,6 +413,13 @@ export class DevlinkerChatParticipant {
         }
     }
 
+    /**
+     * Parses command strings into executable command and arguments
+     * Handles quoted parameters and proper tokenization
+     * 
+     * @param prompt - The command string to parse
+     * @returns Parsed command and arguments or undefined if invalid
+     */
     private parseCommands(prompt: string | undefined) : { execCmd: string; execArgs: string[] } | undefined {
         if (!prompt || prompt.trim() === '') {
             return undefined;
@@ -287,13 +427,13 @@ export class DevlinkerChatParticipant {
         
         const result: { execCmd: string; execArgs: string[] } = { execCmd: '', execArgs: [] };
         
-        // 处理引号内的参数，支持 "parameter with spaces"
+        // Process parameters in quotes, supporting "parameter with spaces"
         const regex = /[^\s"]+|"([^"]*)"/gi;
         let match;
         let tokens: string[] = [];
         
         while ((match = regex.exec(prompt)) !== null) {
-            // 如果捕获了引号内的内容，使用它；否则使用完整匹配
+            // If content within quotes is captured, use it; otherwise, use the full match
             tokens.push(match[1] || match[0]);
         }
         
@@ -307,9 +447,14 @@ export class DevlinkerChatParticipant {
         return result;
     }
 
-    // 手动选择资源当作引用
+    /**
+     * Enables interactive selection of MCP resources for reference in chat
+     * Provides rich UI for resource discovery and selection
+     * 
+     * @returns Promise resolving to selected resource references
+     */
     private async manuallySelectResource(): Promise<vscode.ChatPromptReference[]> {
-        // 获取所有可用资源
+        // Get all available resources
         const allResources = MCPConnectorManager.getInstance()
         .getAvailableConnectionResourcesWithClient()
         .flatMap(conn => 
@@ -324,7 +469,7 @@ export class DevlinkerChatParticipant {
             return [];
         }
 
-        // 显示多选列表
+        // Display a multi-select list
         const selection = await vscode.window.showQuickPick(allResources, {
             placeHolder: vscode.l10n.t('Select resources to reference (Multi-select)'),
             canPickMany: true
@@ -342,31 +487,40 @@ export class DevlinkerChatParticipant {
         return [];
     }
 
+    /**
+     * Registers this chat participant with VS Code's chat interface
+     * Sets up command handling, resource management, and follow-up suggestions
+     * 
+     * @param context - VS Code extension context for registration
+     */
     public registerChatParticipant(context: vscode.ExtensionContext) {
         const handler: vscode.ChatRequestHandler = async (request: vscode.ChatRequest, chatContext: vscode.ChatContext, stream: vscode.ChatResponseStream, token: vscode.CancellationToken) => {
             const collectorStream = new ResponseCollectorStream(stream);
             
-            //  组织引导
+            //  Organize guidance
             let instructions = getSystemRole();
-            //  处理本地工具
+            //  Handle local tools
             let toolsLocal: any[] = [];
-            //  内置命令
+            //  Built-in commands
             switch (request.command) {
                 case 'disconnectAll':
                     await this.disconnectToAllServers(collectorStream);
                     return; 
-                case 'connectRemote':
-                    await this.connectToRemoteServer(collectorStream, request.prompt);
+                case 'connectSSE':
+                    await this.connectToSSE(collectorStream, request.prompt);
                     return;
-                case 'connectLocal':
-                    // 使用正则表达式匹配路径和参数
+                case 'connectSHttp':
+                    await this.connectToStreamableHttp(collectorStream, { url: request.prompt });
+                    return;
+                case 'connectStdio':
+                    // Use regex to match path and arguments
                     const parsedResult = this.parseCommands(request.prompt);
                     if (parsedResult === undefined) {
                         const response = vscode.l10n.t("Invalid command.");
                         collectorStream.markdown(response);
                         return;
                     }
-                    await this.connectToLocalServer(collectorStream, parsedResult.execCmd, parsedResult.execArgs);
+                    await this.connectToStdio(collectorStream, parsedResult.execCmd, parsedResult.execArgs);
                     return;
                 case 'disconnect':
                     await this.disconnectToServer(collectorStream, request.prompt);
@@ -378,10 +532,10 @@ export class DevlinkerChatParticipant {
                     await this.refreshAllServers(collectorStream);
                     return;
                 case 'autoContext':
-                    // 更新并委托资源获取工具来自动引用
+                    // Update and delegate to resource fetching tool for automatic referencing
                     const resourceConnections = MCPConnectorManager.getInstance().getAvailableConnectionResourcesWithId();
                     if (resourceConnections.length > 0) {
-                        toolsLocal = vscode.lm.tools.filter(tool => tool.name === "devlinker-mcp_resources_finder");//目前只添加资源获取工具
+                        toolsLocal = vscode.lm.tools.filter(tool => tool.name === "devlinker-mcp_resources_finder");//Currently only adding resource acquisition tool
                         instructions += getMCPResourceInstruction();
                         for (const resourceConnection of resourceConnections) {
                             for (const resource of resourceConnection.resources) {
@@ -393,7 +547,7 @@ export class DevlinkerChatParticipant {
             }
             collectorStream.progress(vscode.l10n.t("Processing requests..."));
 
-            //  处理MCP工具
+            //  Handle MCP tools
             let toolsOnMCP: AdHocMCPTool[] = [];
             const availableMCPTools = MCPConnectorManager.getInstance().getAvailableConnectionTools();
             availableMCPTools.forEach(availableConnection => {
@@ -406,10 +560,10 @@ export class DevlinkerChatParticipant {
                 });
             });
 
-            //  处理引用的资源
+            //  Handle referenced resources
             let enhancedRequest = {...request};
             if (request.command !== 'autoContext') {
-                //  用户手选资源引用
+                //  User manually selected resource references
                 enhancedRequest = {
                     ...request, 
                     references: [ 
@@ -449,7 +603,7 @@ export class DevlinkerChatParticipant {
             };
         };
 
-        // 创建聊天参与者
+        // Create chat participant
         const participant = vscode.chat.createChatParticipant('mcp.devlinker', handler);
         participant.iconPath = new vscode.ThemeIcon('link');
         participant.followupProvider =  {
@@ -457,7 +611,7 @@ export class DevlinkerChatParticipant {
                 //let followupsResult: vscode.ChatFollowup[] = [];
                 const generateFollowups = async (): Promise<vscode.ChatFollowup[]> => {
                     let followupsResult: vscode.ChatFollowup[] = [];
-                    //  MCP链接器管理
+                    //  MCP connector management
                     const connectionsCount = MCPConnectorManager.getInstance().getAvailableConnectionsCount();
                     if (connectionsCount > 0) {
                         followupsResult.push({
@@ -478,20 +632,20 @@ export class DevlinkerChatParticipant {
                             command: 'load'
                         });
                     }
-                    // 然后等待异步添加建议的followups完成
+                    // Then wait for asynchronous addition of suggested followups to complete
                     try {
                         const responseContent = result.metadata?.responseContent as string;
                         if (!responseContent) {
                             return followupsResult;
                         }
 
-                        //  适不适合添加followup建议，如果可以则生成
+                        //  Whether it's appropriate to add followup suggestions, generate if possible
                         const evaluationPrompt = [
                             vscode.LanguageModelChatMessage.Assistant(getSuggestionPromptsAssistant(responseContent)),
                             vscode.LanguageModelChatMessage.User(getSuggestionPromptsUser())
                         ];
-                        //  调用LLM请求进行评估
-                        const requestResult = await LLMRequest(evaluationPrompt);   //无须处理工具调用问题
+                        //  Call LLM request for evaluation
+                        const requestResult = await LLMRequest(evaluationPrompt);   // No need to handle tool invocation issues
                         if (!requestResult.responseMsg?.content) {
                             return followupsResult;
                         }
@@ -506,10 +660,10 @@ export class DevlinkerChatParticipant {
                             }
 
                             try {
-                                // 尝试将整个响应解析为JSON数组或对象
+                                // Attempt to parse the entire response as a JSON array or object
                                 const parsedContent = JSON.parse(textContent);
                                 if (Array.isArray(parsedContent)) {
-                                    // 如果是数组，直接使用
+                                    // If it's an array, use directly
                                     suggestions = parsedContent.filter(item => 
                                         typeof item === 'object' && item !== null && 
                                         typeof item.label === 'string' && 
@@ -518,11 +672,11 @@ export class DevlinkerChatParticipant {
                                 } else if (typeof parsedContent === 'object' && parsedContent !== null && 
                                           typeof parsedContent.label === 'string' && 
                                           typeof parsedContent.prompt === 'string') {
-                                    // 如果是单个对象，放入数组
+                                    // If it's a single object, put it in an array
                                     suggestions = [parsedContent];
                                 }
                             } catch (jsonError) {
-                                // JSON解析失败，尝试使用正则表达式提取
+                                // JSON parsing failed, try to extract using regular expressions
                                 const regex = /\{\s*"?label"?\s*:\s*"([^"]*)"?\s*,\s*"?prompt"?\s*:\s*"([^"]*)"\s*\}/g;
                                 let match;
                                 while ((match = regex.exec(textContent)) !== null) {
@@ -533,8 +687,8 @@ export class DevlinkerChatParticipant {
                                 }
                             }
                             
-                            // 将提取的建议添加到followups中
-                            for (const suggestion of suggestions.slice(0, 3)) { // 最多取3条
+                            // Add extracted suggestions to followups
+                            for (const suggestion of suggestions.slice(0, 3)) { // Maximum of 3 items
                                 followupsResult.push({
                                     label: suggestion.label,
                                     prompt: suggestion.prompt
@@ -558,7 +712,7 @@ export class DevlinkerChatParticipant {
                 return generateFollowups();
             }
         };
-        // 聊天角色释放时处理
+        // Handle chat role disposal
         participant.dispose = async () => {
             try {
                 // Clear the followup provider
@@ -569,7 +723,7 @@ export class DevlinkerChatParticipant {
                 GlobalChannel.getInstance().appendLog(vscode.l10n.t("Error on cleaning up linker. {0}", e instanceof Error ? e.message : String(e)));
             }
         };
-        // 注册聊天参与者
+        // Register chat participant
         context.subscriptions.push(participant);
     }
 }

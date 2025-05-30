@@ -5,11 +5,12 @@
     "devlinker.tools": "列举可用工具",
     "ext.desc": "一个用于联通AI助手与应用环境的Copilot聊天角色",
     "ailinker.output": "展示日志",
-    "chat.cmd1.desc": "通过给定Url连接到远程MCP服务器",
-    "chat.cmd2.desc": "通过stdio传输连接到本地MCP服务器",
-    "chat.cmd3.desc": "断开特定MCP服务器的连接",
-    "chat.cmd4.desc": "断开所有MCP服务器的连接",
-    "chat.cmd5.desc": "从附加的Json文件中读取并连接MCP服务",
-    "chat.cmd6.desc": "刷新所有MCP连接",
-    "chat.cmd7.desc": "在需要时自动查询外部资源(慎用！需显式说明重新获取)"
+    "chat.cmd1.desc": "以Stdio的方式连接MCP服务",
+    "chat.cmd2.desc": "以SSE的方式连接MCP服务",
+    "chat.cmd3.desc": "以Streamable Http的方式连接MCP服务",
+    "chat.cmd4.desc": "断开特定MCP服务器的连接",
+    "chat.cmd5.desc": "断开所有MCP服务器的连接",
+    "chat.cmd6.desc": "从附加的Json文件中读取并连接MCP服务",
+    "chat.cmd7.desc": "刷新所有MCP连接",
+    "chat.cmd8.desc": "在需要时自动查询外部资源(慎用！需显式说明重新获取)"
 }

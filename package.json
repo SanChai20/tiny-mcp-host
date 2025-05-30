@@ -3,7 +3,7 @@
   "name": "devlinker-mcp-host",
   "displayName": "DevLinker - MCP Host",
   "description": "%ext.desc%",
-  "version": "0.3.7",
+  "version": "0.3.9",
   "pricing": "Free",
   "repository": "https://github.com/SanChai20/tiny-mcp-host",
   "icon": "images/logo.png",
@@ -41,32 +41,36 @@
         "isSticky": true,
         "commands": [
           {
-            "name": "connectRemote",
+            "name": "connectStdio",
             "description": "%chat.cmd1.desc%"
           },
           {
-            "name": "connectLocal",
+            "name": "connectSSE",
             "description": "%chat.cmd2.desc%"
           },
           {
-            "name": "disconnect",
+            "name": "connectSHttp",
             "description": "%chat.cmd3.desc%"
           },
           {
-            "name": "disconnectAll",
+            "name": "disconnect",
             "description": "%chat.cmd4.desc%"
           },
           {
-            "name": "load",
+            "name": "disconnectAll",
             "description": "%chat.cmd5.desc%"
           },
           {
-            "name": "refresh",
+            "name": "load",
             "description": "%chat.cmd6.desc%"
           },
           {
-            "name": "autoContext",
+            "name": "refresh",
             "description": "%chat.cmd7.desc%"
+          },
+          {
+            "name": "autoContext",
+            "description": "%chat.cmd8.desc%"
           }
         ]
       }
@@ -137,7 +141,7 @@
     "typescript-eslint": "^8.26.0"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.7.0",
+    "@modelcontextprotocol/sdk": "^1.12.0",
     "@vscode/chat-extension-utils": "^0.0.0-alpha.5",
     "@vscode/l10n": "^0.0.10",
     "spawn-rx": "^5.1.2"

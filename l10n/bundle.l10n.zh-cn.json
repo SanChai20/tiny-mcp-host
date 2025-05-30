@@ -6,6 +6,7 @@
     "The server process script must be a .js or .py file": "服务进程脚本必须是.js或.py文件",
     "Connected to local MCP server process: {0}": "已连接到本地MCP服务进程: {0}",
     "Connect to local MCP server process failed. {0}": "连接到本地MCP服务进程失败. {0}",
+    "Connect to MCP server failed. {0}": "连接MCP服务失败. {0}",
     "Connect to local MCP server process timeout": "连接到本地MCP服务进程超时",
     "Connect failed. The MCP server process script path is unknown.": "连接失败. MCP服务进程脚本路径未知",
     "Connect to MCP Server": "连接MCP服务",

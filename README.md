@@ -10,20 +10,24 @@
 
     ```@devlinker```
 
-3. 通过/connectLocal指令连接本地MCP服务进程，输入部分为执行命令及参数，如果文件路径中有空格，请使用双引号
+3. 通过 /connectStdio 指令以Stdio的方式连接MCP服务，输入部分为执行命令及参数，如果文件路径中有空格，请使用双引号
 
-    ```@devlinker /connectLocal node D://xxxx/xxx/xx.js```
+    ```@devlinker /connectStdio node D://xxxx/xxx/xx.js```
 
-    ```@devlinker /connectLocal python D://xxxx/xxx/xx.py```
+    ```@devlinker /connectStdio python D://xxxx/xxx/xx.py```
 
-    ```@devlinker /connectLocal python "D://xxxx/xx xx/xx.py"```
+    ```@devlinker /connectStdio python "D://xxxx/xx xx/xx.py"```
 
-4. 或者通过/connectRemote指令连接远程SSE MCP服务
+4. 或者通过 /connectSSE 指令以SSE的方式连接MCP服务
 
-    ```@devlinker /connectRemote http://localhost:8000/sse```
+    ```@devlinker /connectSSE http://localhost:8000/sse```
 
-5. 连接成功后会有Connection id返回，事后可以使用此id来断开连接
-6. LLM模型建议GPT-4o或Claude 3.5 Sonnet，其它模型支持力度不一
+5. 或者通过 /connectSHttp 指令以Streamable Http的方式连接MCP服务，如果需要添加自定义请求头，请使用 /load 指令配合json文件来连接
+
+    ```@devlinker /connectSHttp https://example.com/mcp```
+
+6. 连接成功后会有Connection id返回，事后可以使用此id来断开连接
+7. LLM模型建议GPT-4o或Claude 3.5 Sonnet，其它模型支持力度不一
 
 ## 特性
 
@@ -31,35 +35,53 @@
 2. 支持客户端特性：Roots以及Sampling
 3. 支持智能跟进建议生成
 4. 支持管理多个MCP服务连接
-5. 支持主动断开连接、主动重新连接MCP服务等功能  
+5. 支持主动断开连接、主动重新连接MCP服务等功能
 6. 支持从本地json文件导入并连接MCP服务，须遵循如下格式：
 
 ```
     {
-        "local": [
+        "Stdio": [
             "node D:/path/to/your/jsfile.js",
             "node D:/path/to/your/jsfile.js D:/path/to/target/folder",
             "python E:/path/to/your/pyfile.py"
         ],
-        "remote": [
-            "http://xxx.xx.xx.x:8000/sse"
+        "SSE": [
+            "http://xxx.xx.xx.x:8000/sse",
+            "https://xxxxxx.com/sse"
+        ],
+        "StreamableHttp": [
+            {
+                "url": "https://example1.com/mcp"
+            },
+            {
+                "url": "https://example2.com/mcp",
+                "requestHeaders": {
+                    "Authorization": "Bearer token123",
+                    "Content-Type": "application/json"
+                }
+            }
         ]
     }
 ```
 
 ## 常用聊天指令
 
-- `/connectLocal` - 连接本地MCP服务进程
+- `/connectStdio` - 以Stdio的方式连接MCP服务
 
-- `/connectRemote` - 连接SSE服务
+- `/connectSSE` - 以SSE的方式连接MCP服务
+
+- `/connectSHttp` - 以Streamable Http的方式连接MCP服务
 
 - `/disconnect` - 断开某个MCP连接，后续接connectionID使用，连接成功后会返回id
 
     <code>@devlinker /disconnect connectionID</code>
 
 - `/disconnectAll` - 断开所有MCP连接
+
 - `/refresh` - 刷新所有MCP服务连接
+
 - `/load` - 将MCP服务json配置文件拖拽至聊天窗口作为附件后，通过此指令进行全部加载并连接
+
 - `/autoContext` - 由LLM选择引用哪些外部资源，但是要慎用，因为存在LLM使用旧数据的隐患，需要用户显式的说明重新拉取，才会获得最新数据
 
 
@@ -83,17 +105,21 @@
 
     ```@devlinker```
 
-3. Connect to MCP service by using /connectLocal command. If there are spaces in file paths, use double quotes
+3. Connect to MCP service by using /connectStdio command. If there are spaces in file paths, use double quotes
 
-    ```@devlinker /connectLocal node D://xxxx/xxx/xx.js```
+    ```@devlinker /connectStdio node D://xxxx/xxx/xx.js```
 
-    ```@devlinker /connectLocal python D://xxxx/xxx/xx.py```
+    ```@devlinker /connectStdio python D://xxxx/xxx/xx.py```
 
-    ```@devlinker /connectLocal python "D://xxxx/xx xx/xx.py"```
+    ```@devlinker /connectStdio python "D://xxxx/xx xx/xx.py"```
 
-4. Connect to MCP service by using /connectRemote command.
+4. Connect to MCP service by using /connectSSE command.
 
-    ```@devlinker /connectRemote http://localhost:8000/sse```
+    ```@devlinker /connectSSE http://localhost:8000/sse```
+
+5. Connect to MCP service by using /connectSHttp command. If you need to add custom request headers, please use the /load command with a json file to connect.
+
+    ```@devlinker /connectSHttp https://example.com/mcp```
 
 5. After successful connection, a Connection id will be returned, which can be used later to disconnect
 
@@ -115,34 +141,48 @@
 
 ```
     {
-        "local": [
+        "Stdio": [
             "node D:/path/to/your/jsfile.js",
             "node D:/path/to/your/jsfile.js D:/path/to/target/folder",
             "python E:/path/to/your/pyfile.py"
         ],
-        "remote": [
+        "SSE": [
             "http://xxx.xx.xx.x:8000/sse"
+        ],
+        "StreamableHttp": [
+            {
+                "url": "https://example1.com/mcp"
+            },
+            {
+                "url": "https://example2.com/mcp",
+                "requestHeaders": {
+                    "Authorization": "Bearer token123",
+                    "Content-Type": "application/json"
+                }
+            }
         ]
     }
 ```
 
 ## Common Chat Commands
 
-- /connectLocal - Connect to a local MCP service process
+- `/connectStdio` - Connect to MCP service using Stdio (Standard Input/Output)
 
-- /connectRemote - Connect to a remote SSE MCP service. Note: remote service connections are currently unstable
+- `/connectSSE` - Connect to MCP service using SSE (Server-Sent Events)
 
-- /disconnect - Disconnect a specific MCP connection, use the connectionID that was returned after successful connection
+- `/connectSHttp` - Connect to MCP service using Streamable HTTP
+
+- `/disconnect` - Disconnect a specific MCP connection, use the connectionID that was returned after successful connection
 
     <code>@devlinker /disconnect connectionID</code>
 
-- /disconnectAll - Disconnect all MCP connections
+- `/disconnectAll` - Disconnect all MCP connections
 
-- /refresh - Refresh all MCP service connections
+- `/refresh` - Refresh all MCP service connections
 
-- /load - After dragging an MCP service configuration json file into the chat window as an attachment, use this command to load and connect to all services
+- `/load` - After dragging an MCP service configuration json file into the chat window as an attachment, use this command to load and connect to all services
 
-- /autoContext - Let the LLM choose which external resources to reference. Use with caution as there is a risk of the LLM using outdated data. Users need to explicitly request refreshing data to get the latest information
+- `/autoContext` - Let the LLM choose which external resources to reference. Use with caution as there is a risk of the LLM using outdated data. Users need to explicitly request refreshing data to get the latest information
 
 ## Common Issues
 
